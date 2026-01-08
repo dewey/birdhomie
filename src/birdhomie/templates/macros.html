@@ -1,0 +1,25 @@
+{# Reusable bird thumbnail component with cache busting #}
+{% macro bird_thumbnail(detection_id, size=96, css_class='', alt='Bird detection', cache_key=None) %}
+{%- set url = '/thumbnail/' ~ detection_id ~ '/' ~ size -%}
+{%- if cache_key -%}
+{%- set url = url ~ '?v=' ~ (cache_key | string | replace(' ', 'T') | replace(':', '') | replace('-', '')) -%}
+{%- endif -%}
+<img src="{{ url }}"
+     alt="{{ alt }}"
+     class="object-cover {{ css_class }}"
+     loading="lazy">
+{% endmacro %}
+
+{# Thumbnail card with common styling and optional badge #}
+{% macro bird_thumbnail_card(detection_id, size=96, show_badge=false, badge_icon='star-fill', cache_key=None) %}
+<div class="relative group">
+    {{ bird_thumbnail(detection_id, size,
+                     'w-24 h-24 rounded-lg shadow-md group-hover:shadow-xl transition-shadow border-2 border-gray-200 group-hover:border-yellow-400',
+                     cache_key=cache_key) }}
+    {% if show_badge %}
+    <div class="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 rounded-full p-1.5 w-6 h-6 flex items-center justify-center">
+        <i class="bi bi-{{ badge_icon }} text-xs"></i>
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}

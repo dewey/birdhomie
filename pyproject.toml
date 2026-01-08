@@ -1,0 +1,30 @@
+[project]
+name = "birdhomie"
+version = "0.1.0"
+description = "Bird detection and classification system for UniFi Protect"
+readme = "README.md"
+authors = [
+    { name = "Philipp Defner", email = "mail@notmyhostna.me" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=2.4.0",
+    "opencv-python>=4.11.0.86",
+    "pillow>=12.1.0",
+    "open-clip-torch>=3.2.0",
+    "ultralytics>=8.3.248",
+    "flask>=3.0",
+    "flask-babel>=4.0.0",
+    "flask-caching>=2.0.0",
+    "apscheduler>=3.10",
+    "requests>=2.31",
+    "uiprotect>=7.0.0",
+    "av>=13.0.0",
+]
+
+[project.scripts]
+birdhomie = "birdhomie.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

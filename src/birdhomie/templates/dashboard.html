@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Birdhomie{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">Birdhomie</h1>
+
+    <div class="mb-6">
+        <div class="inline-flex rounded-md shadow-sm" role="group">
+            <a href="/?period=today" class="px-4 py-2 text-sm font-medium {% if period == 'today' %}bg-blue-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-50{% endif %} border border-gray-200 rounded-l-lg">
+                {{ _('Today') }}
+            </a>
+            <a href="/?period=week" class="px-4 py-2 text-sm font-medium {% if period == 'week' %}bg-blue-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-50{% endif %} border-t border-b border-gray-200">
+                {{ _('This Week') }}
+            </a>
+            <a href="/?period=month" class="px-4 py-2 text-sm font-medium {% if period == 'month' %}bg-blue-600 text-white{% else %}bg-white text-gray-700 hover:bg-gray-50{% endif %} border border-gray-200 rounded-r-lg">
+                {{ _('This Month') }}
+            </a>
+        </div>
+    </div>
+
+    {% if species %}
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {% for sp in species %}
+        <a href="/species/{{ sp.taxon_id }}" class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow">
+            <div class="p-5">
+                {% if sp.image_path %}
+                <img src="/data/{{ sp.image_path.replace('/Users/philippdefner/repos/github.com/dewey/birdhomie/data/', '') }}" alt="{{ sp.name }}" class="w-full h-48 object-cover rounded-md mb-4">
+                {% else %}
+                <div class="w-full h-48 bg-gray-200 rounded-md mb-4 flex items-center justify-center">
+                    <i class="bi bi-image text-gray-400 text-4xl"></i>
+                </div>
+                {% endif %}
+                <h3 class="text-lg font-medium text-gray-900">{{ sp.name }}</h3>
+                <p class="text-sm text-gray-500 italic">{{ sp.scientific_name }}</p>
+                <p class="mt-2 text-sm text-gray-600">{{ sp.visit_count }} {{ ngettext('visit', 'visits', sp.visit_count) }}</p>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <i class="bi bi-search text-gray-400 text-6xl mb-4"></i>
+        <h3 class="text-lg font-medium text-gray-900">{{ _('No birds detected yet') }}</h3>
+        <p class="mt-2 text-sm text-gray-500">{{ _('Process some video files to see detections here.') }}</p>
+    </div>
+    {% endif %}
+
+    <div class="mt-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ _('Insights') }}</h2>
+
+        {% if stats %}
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-eye text-2xl text-blue-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">{{ _('Total Visits') }}</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ stats.total_visits or 0 }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-collection text-2xl text-green-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">{{ _('Unique Species') }}</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ stats.unique_species or 0 }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-clock text-2xl text-purple-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">{{ _('Most Active Hour') }}</dt>
+                                <dd class="text-lg font-medium text-gray-900">
+                                    {% if stats.most_active_hour is not none %}{{ stats.most_active_hour }}:00{% else %}{{ _('N/A') }}{% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-week text-2xl text-orange-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">{{ _('Most Popular Day') }}</dt>
+                                <dd class="text-lg font-medium text-gray-900">
+                                    {{ stats.most_popular_day_name }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">{{ _('Activity by Hour of Day') }}</h3>
+            <div style="position: relative; height: 300px;">
+                <canvas id="hourlyActivityChart"></canvas>
+            </div>
+        </div>
+
+        {% if streak_data %}
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">{{ _('Longest Visiting Streaks') }}</h3>
+            <div style="position: relative; height: {{ (streak_data|length * 60) + 40 }}px;">
+                <canvas id="streakChart"></canvas>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+const period = '{{ period }}';
+let hourlyChart;
+
+async function loadHourlyActivity() {
+    try {
+        const response = await fetch(`/api/stats/hourly-activity?period=${period}`);
+        const data = await response.json();
+        
+        const ctx = document.getElementById('hourlyActivityChart').getContext('2d');
+        
+        if (hourlyChart) {
+            hourlyChart.destroy();
+        }
+        
+        hourlyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels.map(h => `${h}:00`),
+                datasets: [{
+                    label: '{{ _("Visits") }}',
+                    data: data.data,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        },
+                        title: {
+                            display: true,
+                            text: '{{ _("Number of Visits") }}'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '{{ _("Hour of Day") }}'
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading hourly activity:', error);
+    }
+}
+
+loadHourlyActivity();
+
+{% if streak_data %}
+// Streak chart
+const streakCtx = document.getElementById('streakChart').getContext('2d');
+const streakData = {
+    labels: [
+        {% for streak in streak_data %}
+        '{{ streak.species_name }}'{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    datasets: [{
+        label: '{{ _("Days") }}',
+        data: [
+            {% for streak in streak_data %}
+            {{ streak.longest_streak }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        backgroundColor: [
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(251, 146, 60, 0.8)',
+            'rgba(139, 92, 246, 0.8)',
+            'rgba(236, 72, 153, 0.8)'
+        ],
+        borderColor: [
+            'rgb(59, 130, 246)',
+            'rgb(16, 185, 129)',
+            'rgb(251, 146, 60)',
+            'rgb(139, 92, 246)',
+            'rgb(236, 72, 153)'
+        ],
+        borderWidth: 2
+    }]
+};
+
+new Chart(streakCtx, {
+    type: 'bar',
+    data: streakData,
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const days = context.parsed.x;
+                        return `${days} {{ _("consecutive days") }}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                },
+                title: {
+                    display: true,
+                    text: '{{ _("Consecutive Days") }}'
+                }
+            },
+            y: {
+                ticks: {
+                    font: {
+                        size: 13
+                    }
+                }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

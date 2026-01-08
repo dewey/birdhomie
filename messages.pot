@@ -1,0 +1,91 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-01-07 13:52+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: src/birdhomie/templates/base.html:50
+msgid "Home"
+msgstr ""
+
+#: src/birdhomie/templates/base.html:53
+msgid "Species"
+msgstr ""
+
+#: src/birdhomie/templates/base.html:56
+msgid "Files"
+msgstr ""
+
+#: src/birdhomie/templates/base.html:59
+msgid "Tasks"
+msgstr ""
+
+#: src/birdhomie/templates/base.html:62
+msgid "Settings"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:12
+msgid "Today"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:15
+msgid "This Week"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:18
+msgid "This Month"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:45
+msgid "No birds detected yet"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:46
+msgid "Process some video files to see detections here."
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:22
+msgid "Total Visits"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:26
+msgid "First Seen"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:30
+msgid "Last Seen"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:39
+msgid "About"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:43
+msgid "Read more on Wikipedia"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:54
+msgid "Recent Photos"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:70
+msgid "Go to Visit"
+msgstr ""
+
+#: src/birdhomie/templates/species_detail.html:125
+msgid "Recent Visits"
+msgstr ""
+

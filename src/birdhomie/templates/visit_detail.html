@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Visit #{{ visit.id }} - {{ visit.species_name }} - Birdhomie{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <!-- Breadcrumbs -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" class="text-gray-700 hover:text-blue-600">
+                    <i class="bi bi-house-door mr-1"></i>Home
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="bi bi-chevron-right text-gray-400 mx-2"></i>
+                    <a href="/species" class="text-gray-700 hover:text-blue-600">Species</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="bi bi-chevron-right text-gray-400 mx-2"></i>
+                    <a href="/species/{{ visit.taxon_id }}" class="text-gray-700 hover:text-blue-600">{{ visit.species_name }}</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <i class="bi bi-chevron-right text-gray-400 mx-2"></i>
+                    <span class="text-gray-500">Visit #{{ visit.id }}</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">{{ visit.species_name }}</h1>
+                    <p class="text-lg text-gray-500 italic">{{ visit.scientific_name }}</p>
+                    <p class="text-sm text-gray-500 mt-2">
+                        <i class="bi bi-calendar3"></i> {{ visit.event_start|format_datetime('datetime') }}
+                    </p>
+                </div>
+                {% if visit.corrected_at %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                    <i class="bi bi-pencil-square mr-1"></i> Corrected
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Detection Info -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-500">Detections</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ visit.detection_count }}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-500">Species Confidence</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ "%.1f"|format(visit.species_confidence * 100) }}%</p>
+                    {% if visit.species_confidence_model %}
+                    <p class="text-xs text-gray-500">{{ visit.species_confidence_model }}</p>
+                    {% endif %}
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <p class="text-sm text-gray-500">Duration</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ "%.1f"|format(visit.duration_seconds) }}s</p>
+                </div>
+            </div>
+
+            <!-- Video/Image Player -->
+            {% if is_video and annotated_path %}
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-3">
+                    <i class="bi bi-play-circle"></i> Annotated Video
+                </h2>
+                <video controls class="w-full max-w-4xl rounded-lg shadow-lg">
+                    <source src="/data/{{ annotated_path }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            {% endif %}
+
+            <!-- Species Correction Form -->
+            <div class="border-t border-gray-200 pt-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-3">
+                    <i class="bi bi-pencil-square"></i> Correct Species Identification
+                </h2>
+
+                <!-- Existing species dropdown -->
+                <form action="/visits/{{ visit.id }}/correct" method="POST" class="max-w-3xl">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select from known species
+                        </label>
+                        <div class="flex gap-3">
+                            <select name="taxon_id" class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                <option value="">Select correct species...</option>
+                                {% for species in all_species %}
+                                <option value="{{ species.taxon_id }}" {% if species.taxon_id == visit.taxon_id %}selected{% endif %}>
+                                    {{ species.name }} ({{ species.scientific_name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="inline-flex items-center px-5 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap">
+                                <i class="bi bi-check-lg mr-1"></i> Update
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- OR divider -->
+                    <div class="relative mb-6">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-3 bg-white text-gray-500 font-medium">OR</span>
+                        </div>
+                    </div>
+
+                    <!-- iNaturalist URL input -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Paste iNaturalist link for new species
+                        </label>
+                        <div class="flex gap-3">
+                            <input type="url"
+                                   name="inaturalist_url"
+                                   placeholder="https://www.inaturalist.org/taxa/13094"
+                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
+                                   pattern="https://.*inaturalist\.org/taxa/[0-9]+.*">
+                            <button type="submit" class="inline-flex items-center px-5 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 whitespace-nowrap">
+                                <i class="bi bi-plus-circle mr-1"></i> Add & Update
+                            </button>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">
+                            <i class="bi bi-info-circle mr-1"></i> Example: https://www.inaturalist.org/taxa/13094
+                        </p>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Detection Crops -->
+            <div class="border-t border-gray-200 pt-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-3">
+                    <i class="bi bi-grid-3x2"></i> All Detections ({{ detections|length }})
+                </h2>
+
+                {% if detections %}
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {% for detection in detections %}
+                    <div class="relative group cursor-pointer rounded-lg {% if visit.best_detection_id == detection.id %}ring-4 ring-yellow-400{% endif %}" onclick="openLightbox({{ loop.index0 }})">
+                        <img src="/data/output/{{ detection.crop_path }}"
+                             alt="Frame {{ detection.frame_number }}"
+                             class="w-full h-32 object-cover rounded-lg shadow hover:shadow-lg transition-shadow">
+
+                        <!-- Best detection badge -->
+                        {% if visit.best_detection_id == detection.id %}
+                        <span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 rounded-full p-1.5 w-6 h-6 flex items-center justify-center">
+                            <i class="bi bi-star-fill text-xs"></i>
+                        </span>
+                        {% endif %}
+
+                        <!-- Frame number overlay -->
+                        <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-2 rounded-b-lg">
+                            <div class="flex justify-between items-center">
+                                <span><i class="bi bi-film"></i> Frame {{ detection.frame_number }}</span>
+                                {% if detection.detection_confidence %}
+                                <span>{{ "%.0f"|format(detection.detection_confidence * 100) }}%</span>
+                                {% endif %}
+                            </div>
+                            {% if detection.frame_timestamp %}
+                            <div class="text-gray-300">{{ "%.1f"|format(detection.frame_timestamp) }}s</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500">No detection crops available.</p>
+                {% endif %}
+            </div>
+
+            <!-- File Link -->
+            <div class="border-t border-gray-200 pt-6 mt-6">
+                <a href="/files" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+                    <i class="bi bi-file-earmark-text mr-1"></i> View all files
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PhotoSwipe markup -->
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="pswp__bg"></div>
+    <div class="pswp__scroll-wrap">
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        <div class="pswp__ui pswp__ui--hidden">
+            <div class="pswp__top-bar">
+                <div class="pswp__counter"></div>
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button>
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// PhotoSwipe lightbox data
+var pswpItems = [
+    {% for detection in detections %}
+    {
+        src: '/data/output/{{ detection.crop_path }}',
+        w: 800,
+        h: 600,
+        title: 'Frame {{ detection.frame_number }} - {{ "%.1f"|format(detection.frame_timestamp) }}s - Confidence: {{ "%.0f"|format(detection.detection_confidence * 100) if detection.detection_confidence else "N/A" }}%'
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function openLightbox(index) {
+    var pswpElement = document.querySelectorAll('.pswp')[0];
+    var options = {
+        index: index,
+        bgOpacity: 0.9,
+        showHideOpacity: true,
+        history: false
+    };
+    var gallery = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, pswpItems, options);
+    gallery.init();
+}
+
+// Clear other field when one is selected
+document.addEventListener('DOMContentLoaded', function() {
+    const dropdownSelect = document.querySelector('select[name="taxon_id"]');
+    const urlInput = document.querySelector('input[name="inaturalist_url"]');
+
+    if (dropdownSelect && urlInput) {
+        dropdownSelect.addEventListener('change', function() {
+            if (this.value) {
+                urlInput.value = '';
+            }
+        });
+
+        urlInput.addEventListener('input', function() {
+            if (this.value) {
+                dropdownSelect.value = '';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

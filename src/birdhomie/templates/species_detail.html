@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% from 'macros.html' import bird_thumbnail, bird_thumbnail_card %}
+
+{% block title %}{{ species.common_name_en or species.scientific_name }} - Birdhomie{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-start">
+                {% if species.image_path %}
+                <img src="/data/{{ species.image_path.replace('/Users/philippdefner/repos/github.com/dewey/birdhomie/data/', '') }}" alt="{{ species.scientific_name }}" class="h-48 w-48 rounded-lg object-cover mr-6">
+                {% else %}
+                <div class="h-48 w-48 bg-gray-200 rounded-lg mr-6 flex items-center justify-center">
+                    <i class="bi bi-image text-gray-400 text-6xl"></i>
+                </div>
+                {% endif %}
+                <div class="flex-1">
+                    <h1 class="text-3xl font-bold text-gray-900">{{ species['common_name_' + g.locale] or species.scientific_name }}</h1>
+                    <p class="text-xl text-gray-500 italic">{{ species.scientific_name }}</p>
+                    <div class="mt-4 grid grid-cols-3 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-500">{{ _('Total Visits') }}</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ species.total_visits }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">{{ _('First Seen') }}</p>
+                            <p class="text-lg text-gray-900">{{ species.first_seen|format_datetime('date') if species.first_seen else 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">{{ _('Last Seen') }}</p>
+                            <p class="text-lg text-gray-900">{{ species.last_seen|format_time_ago if species.last_seen else 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if species.wikipedia_excerpt %}
+            <div class="mt-6 border-t border-gray-200 pt-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-2">{{ _('About') }}</h2>
+                <p class="text-gray-700">{{ species.wikipedia_excerpt }}</p>
+                {% if species.wikipedia_url %}
+                <a href="{{ species.wikipedia_url }}" target="_blank" class="mt-2 inline-flex items-center text-blue-600 hover:text-blue-800">
+                    {{ _('Read more on Wikipedia') }} <i class="bi bi-box-arrow-up-right ml-1"></i>
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Photos Gallery -->
+    {% if recent_crops %}
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">{{ _('Recent Photos') }}</h2>
+        <div class="bg-white shadow overflow-hidden sm:rounded-md p-4">
+            <div class="overflow-x-auto scroll-smooth">
+                <div class="flex space-x-4 pb-2">
+                    {% for crop in recent_crops %}
+                    <div class="flex-shrink-0 group">
+                        <div class="relative cursor-pointer" onclick="openLightbox('/data/output/{{ crop.crop_path }}', '{{ crop.event_start|format_datetime('datetime', False) if crop.event_start else 'N/A' }}', {{ crop.visit_id }}, {{ crop.detection_id }}, '{{ crop.annotation_source or '' }}')">
+                            {{ bird_thumbnail(crop.detection_id, 96,
+                               'w-24 h-24 rounded-lg shadow-md group-hover:shadow-xl transition-shadow border-2 border-gray-200 group-hover:border-yellow-400',
+                               'Detection from ' ~ (crop.event_start|format_datetime('datetime', False) if crop.event_start else 'N/A'),
+                               cache_key=crop.cache_key) }}
+                            <div class="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 rounded-full p-1.5 w-6 h-6 flex items-center justify-center">
+                                <i class="bi bi-star-fill text-xs"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 text-center mt-2 w-24">{{ crop.event_start|format_datetime('date') if crop.event_start else 'N/A' }}</p>
+                        <a href="/visits/{{ crop.visit_id }}" class="block text-xs text-center text-blue-600 hover:text-blue-800 mt-1 font-medium">
+                            <i class="bi bi-arrow-right-circle mr-1"></i>{{ _('Go to Visit') }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4" onclick="closeLightbox()">
+        <div class="relative max-w-5xl max-h-full min-w-[600px]" onclick="event.stopPropagation()">
+            <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white hover:text-gray-300 text-3xl font-bold">
+                <i class="bi bi-x-circle-fill"></i>
+            </button>
+            <img id="lightbox-image" src="" alt="{{ _('Full size detection') }}" class="max-w-full max-h-[80vh] rounded-lg">
+            <div class="mt-4 flex items-center justify-between gap-4 bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-4">
+                <p id="lightbox-caption" class="text-white text-sm"></p>
+                <div class="flex gap-2 flex-shrink-0">
+                    <a id="lightbox-label-link" href="#" class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md text-sm font-medium transition-colors">
+                        <i class="bi bi-pencil-square mr-2"></i><span id="lightbox-label-text">{{ _('Label face') }}</span>
+                    </a>
+                    <a id="lightbox-visit-link" href="#" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors">
+                        <i class="bi bi-arrow-right-circle mr-2"></i>{{ _('Go to Visit') }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function openLightbox(imagePath, eventStart, visitId, detectionId, annotationSource) {
+        const lightbox = document.getElementById('lightbox');
+        const image = document.getElementById('lightbox-image');
+        const caption = document.getElementById('lightbox-caption');
+        const visitLink = document.getElementById('lightbox-visit-link');
+        const labelLink = document.getElementById('lightbox-label-link');
+        const labelText = document.getElementById('lightbox-label-text');
+
+        image.src = imagePath;
+        caption.textContent = `{{ _('Detection from') }} ${eventStart}`;
+        visitLink.href = `/visits/${visitId}`;
+
+        // Determine if this is a relabel based on annotation source
+        const isHumanLabeled = annotationSource === 'human_confirmed' || annotationSource === 'human_corrected';
+        labelText.textContent = isHumanLabeled ? '{{ _('Re-label face') }}' : '{{ _('Label face') }}';
+
+        // Add return URL to redirect back to lightbox after labeling
+        const currentUrl = encodeURIComponent(window.location.pathname + `#detection-${detectionId}`);
+        labelLink.href = `/labeling?id=${detectionId}&return_url=${currentUrl}`;
+
+        lightbox.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        const lightbox = document.getElementById('lightbox');
+        lightbox.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Close lightbox with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeLightbox();
+        }
+    });
+
+    // Auto-open lightbox if returning from labeling with detection ID in hash
+    document.addEventListener('DOMContentLoaded', function() {
+        const hash = window.location.hash;
+        if (hash.startsWith('#detection-')) {
+            const detectionId = hash.replace('#detection-', '');
+            // Find the detection in the recent crops
+            const cropElement = document.querySelector(`[onclick*="detectionId, ${detectionId}"]`);
+            if (cropElement) {
+                cropElement.click();
+            }
+        }
+    });
+    </script>
+
+    <h2 class="text-2xl font-bold text-gray-900 mb-4">{{ _('Recent Visits') }}</h2>
+
+    {% if visits %}
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul class="divide-y divide-gray-200">
+            {% for visit in visits %}
+            <li class="px-4 py-4 sm:px-6 hover:bg-gray-50 transition-colors">
+                <a href="/visits/{{ visit.id }}" class="block">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">{{ visit.event_start|format_datetime('datetime') }}</p>
+                            <p class="text-sm text-gray-500">{{ visit.detection_count }} detections</p>
+                            <p class="text-sm text-gray-500">Confidence: {{ "%.1f"|format(visit.species_confidence * 100) }}%</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            {% if visit.best_detection_id %}
+                            <img src="/thumbnail/{{ visit.best_detection_id }}/80" alt="Detection" class="h-20 w-20 rounded object-cover">
+                            {% endif %}
+                            <i class="bi bi-chevron-right text-gray-400"></i>
+                        </div>
+                    </div>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <p class="text-gray-500">No visits recorded yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

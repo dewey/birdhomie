@@ -1,0 +1,301 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-01-07 23:17+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: app.py:271
+msgid "Sunday"
+msgstr ""
+
+#: app.py:272
+msgid "Monday"
+msgstr ""
+
+#: app.py:273
+msgid "Tuesday"
+msgstr ""
+
+#: app.py:274
+msgid "Wednesday"
+msgstr ""
+
+#: app.py:275
+msgid "Thursday"
+msgstr ""
+
+#: app.py:276
+msgid "Friday"
+msgstr ""
+
+#: app.py:277
+msgid "Saturday"
+msgstr ""
+
+#: app.py:280 templates/dashboard.html:101
+msgid "N/A"
+msgstr ""
+
+#: templates/base.html:51
+msgid "Home"
+msgstr ""
+
+#: templates/base.html:54 templates/labeling_stats.html:87
+msgid "Species"
+msgstr ""
+
+#: templates/base.html:57
+msgid "Files"
+msgstr ""
+
+#: templates/base.html:60
+msgid "Tasks"
+msgstr ""
+
+#: templates/base.html:63
+msgid "Labeling"
+msgstr ""
+
+#: templates/base.html:66
+msgid "Settings"
+msgstr ""
+
+#: templates/dashboard.html:16
+msgid "Today"
+msgstr ""
+
+#: templates/dashboard.html:19
+msgid "This Week"
+msgstr ""
+
+#: templates/dashboard.html:22
+msgid "This Month"
+msgstr ""
+
+#: templates/dashboard.html:41
+msgid "visit"
+msgid_plural "visits"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/dashboard.html:49
+msgid "No birds detected yet"
+msgstr ""
+
+#: templates/dashboard.html:50
+msgid "Process some video files to see detections here."
+msgstr ""
+
+#: templates/dashboard.html:55
+msgid "Insights"
+msgstr ""
+
+#: templates/dashboard.html:67 templates/species_detail.html:23
+msgid "Total Visits"
+msgstr ""
+
+#: templates/dashboard.html:83
+msgid "Unique Species"
+msgstr ""
+
+#: templates/dashboard.html:99
+msgid "Most Active Hour"
+msgstr ""
+
+#: templates/dashboard.html:117
+msgid "Most Popular Day"
+msgstr ""
+
+#: templates/dashboard.html:130
+msgid "Activity by Hour of Day"
+msgstr ""
+
+#: templates/dashboard.html:158
+msgid "Visits"
+msgstr ""
+
+#: templates/dashboard.html:188
+msgid "Number of Visits"
+msgstr ""
+
+#: templates/dashboard.html:194
+msgid "Hour of Day"
+msgstr ""
+
+#: templates/labeling.html:3 templates/labeling.html:123
+msgid "Face Labeling"
+msgstr ""
+
+#: templates/labeling.html:128
+msgid "pending"
+msgstr ""
+
+#: templates/labeling.html:131
+msgid "reviewed"
+msgstr ""
+
+#: templates/labeling.html:134
+msgid "total"
+msgstr ""
+
+#: templates/labeling.html:158
+msgid "Detection ID"
+msgstr ""
+
+#: templates/labeling.html:162
+msgid "Confidence"
+msgstr ""
+
+#: templates/labeling.html:166
+msgid "Frame Time"
+msgstr ""
+
+#: templates/labeling.html:170
+msgid "Status"
+msgstr ""
+
+#: templates/labeling.html:182
+msgid "Review Actions"
+msgstr ""
+
+#: templates/labeling.html:185
+msgid "Tip"
+msgstr ""
+
+#: templates/labeling.html:190
+msgid "Confirm Annotation"
+msgstr ""
+
+#: templates/labeling.html:194
+msgid "No Visible Face"
+msgstr ""
+
+#: templates/labeling.html:200
+msgid "Keyboard Shortcuts"
+msgstr ""
+
+#: templates/labeling.html:202
+msgid "Confirm"
+msgstr ""
+
+#: templates/labeling.html:203
+msgid "No face"
+msgstr ""
+
+#: templates/labeling.html:210
+msgid "Detection"
+msgstr ""
+
+#: templates/labeling.html:222
+msgid "All caught up! No pending annotations."
+msgstr ""
+
+#: templates/labeling.html:226
+msgid "View Statistics"
+msgstr ""
+
+#: templates/labeling_stats.html:3 templates/labeling_stats.html:8
+msgid "Labeling Statistics"
+msgstr ""
+
+#: templates/labeling_stats.html:11
+msgid "Continue Labeling"
+msgstr ""
+
+#: templates/labeling_stats.html:19
+msgid "Total Detections"
+msgstr ""
+
+#: templates/labeling_stats.html:23
+msgid "Reviewed by Human"
+msgstr ""
+
+#: templates/labeling_stats.html:30
+msgid "Pending Review"
+msgstr ""
+
+#: templates/labeling_stats.html:37
+msgid "Not Yet Annotated"
+msgstr ""
+
+#: templates/labeling_stats.html:43
+msgid "Heuristic Accuracy"
+msgstr ""
+
+#: templates/labeling_stats.html:49
+msgid "Confirmed Correct"
+msgstr ""
+
+#: templates/labeling_stats.html:55
+msgid "Corrected by Human"
+msgstr ""
+
+#: templates/labeling_stats.html:61 templates/labeling_stats.html:99
+msgid "Confirmation Rate"
+msgstr ""
+
+#: templates/labeling_stats.html:63
+msgid "Target"
+msgstr ""
+
+#: templates/labeling_stats.html:80
+msgid "Per-Species Annotation Status"
+msgstr ""
+
+#: templates/labeling_stats.html:90
+msgid "Total"
+msgstr ""
+
+#: templates/labeling_stats.html:93
+msgid "Reviewed"
+msgstr ""
+
+#: templates/labeling_stats.html:96
+msgid "Pending"
+msgstr ""
+
+#: templates/labeling_stats.html:102
+msgid "Progress"
+msgstr ""
+
+#: templates/species_detail.html:27
+msgid "First Seen"
+msgstr ""
+
+#: templates/species_detail.html:31
+msgid "Last Seen"
+msgstr ""
+
+#: templates/species_detail.html:40
+msgid "About"
+msgstr ""
+
+#: templates/species_detail.html:44
+msgid "Read more on Wikipedia"
+msgstr ""
+
+#: templates/species_detail.html:55
+msgid "Recent Photos"
+msgstr ""
+
+#: templates/species_detail.html:72
+msgid "Go to Visit"
+msgstr ""
+
+#: templates/species_detail.html:134
+msgid "Recent Visits"
+msgstr ""
+

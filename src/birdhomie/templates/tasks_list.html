@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks - Birdhomie{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Background Tasks</h1>
+        <div class="relative">
+            <button
+                onclick="toggleDropdown(event)"
+                id="run-task-btn"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span class="btn-text">Run Task</span>
+                <i class="bi bi-chevron-down ml-2"></i>
+                <i class="bi bi-arrow-repeat animate-spin ml-2 hidden btn-spinner"></i>
+            </button>
+            <div id="dropdown-menu" class="hidden absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <button
+                    onclick="event.stopPropagation(); triggerTaskFromDropdown('file_processor');"
+                    id="btn-file-processor"
+                    class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="bi bi-play-fill text-blue-600 text-xl"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Run File Processor</div>
+                        <div class="text-xs text-gray-500">Process new files and detect birds</div>
+                    </div>
+                </button>
+                <button
+                    onclick="event.stopPropagation(); triggerTaskFromDropdown('unifi_download');"
+                    id="btn-unifi-download"
+                    class="w-full text-left px-4 py-3 hover:bg-gray-50 border-t border-gray-100 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="bi bi-download text-green-600 text-xl"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Download from UniFi</div>
+                        <div class="text-xs text-gray-500">Fetch new recordings from UniFi Protect</div>
+                    </div>
+                </button>
+                <button
+                    onclick="event.stopPropagation(); triggerTaskFromDropdown('face_annotation');"
+                    id="btn-face-annotation"
+                    class="w-full text-left px-4 py-3 hover:bg-gray-50 border-t border-gray-100 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="bi bi-tag text-purple-600 text-xl"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Annotate Faces</div>
+                        <div class="text-xs text-gray-500">Detect and annotate bird faces in images</div>
+                    </div>
+                </button>
+                <button
+                    onclick="event.stopPropagation(); triggerTaskFromDropdown('regenerate_thumbnails');"
+                    id="btn-regenerate-thumbnails"
+                    class="w-full text-left px-4 py-3 hover:bg-gray-50 border-t border-gray-100 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="bi bi-arrow-clockwise text-orange-600 text-xl"></i>
+                    <div>
+                        <div class="font-medium text-gray-800">Regenerate Thumbnails</div>
+                        <div class="text-xs text-gray-500">Regenerate thumbnails for all images</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification area for success/error messages -->
+    <div id="notification" class="hidden mb-4 p-4 rounded-md">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="notification-icon text-xl"></i>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm font-medium notification-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Task History</h2>
+
+    {% if tasks %}
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul class="divide-y divide-gray-200" id="tasks-list">
+            {% for task in tasks %}
+            <li class="px-4 py-4 sm:px-6 {% if task.status == 'running' %}bg-blue-50{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center">
+                            {% if task.status == 'running' %}
+                            <i class="bi bi-arrow-repeat text-blue-500 text-2xl mr-3 animate-spin"></i>
+                            {% elif task.status == 'success' %}
+                            <i class="bi bi-check-circle-fill text-green-500 text-2xl mr-3"></i>
+                            {% elif task.status == 'failed' %}
+                            <i class="bi bi-x-circle-fill text-red-500 text-2xl mr-3"></i>
+                            {% else %}
+                            <i class="bi bi-question-circle-fill text-gray-500 text-2xl mr-3"></i>
+                            {% endif %}
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-medium text-gray-900">{{ task.task_type.replace('_', ' ').title() }}</p>
+                                    <span class="ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        {% if task.status == 'running' %}bg-blue-100 text-blue-800
+                                        {% elif task.status == 'success' %}bg-green-100 text-green-800
+                                        {% elif task.status == 'failed' %}bg-red-100 text-red-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ task.status }}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Started: {{ task.started_at|format_time_ago }}
+                                    {% if task.completed_at %}
+                                    | Completed: {{ task.completed_at|format_time_ago }}
+                                    {% endif %}
+                                    {% if task.duration_seconds %}
+                                    | Duration: {{ "%.1f"|format(task.duration_seconds) }}s
+                                    {% endif %}
+                                </p>
+                                <p class="text-sm text-gray-500">
+                                    Items: {{ task.items_processed or 0 }} processed
+                                    {% if task.items_failed > 0 %}, {{ task.items_failed }} failed{% endif %}
+                                </p>
+                                {% if task.hostname or task.pid %}
+                                <p class="text-xs text-gray-400 mt-1">
+                                    {% if task.hostname %}Host: {{ task.hostname }}{% endif %}
+                                    {% if task.pid %} (PID: {{ task.pid }}){% endif %}
+                                </p>
+                                {% endif %}
+                                {% if task.error_message %}
+                                <div class="mt-2 p-2 bg-red-50 rounded-md">
+                                    <p class="text-sm text-red-600">
+                                        <i class="bi bi-exclamation-triangle-fill mr-1"></i>
+                                        Error: {{ task.error_message }}
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="text-center py-12 bg-white rounded-lg">
+        <i class="bi bi-clock-history text-gray-400 text-6xl mb-4"></i>
+        <h3 class="text-lg font-medium text-gray-900">No tasks yet</h3>
+        <p class="text-sm text-gray-500 mt-2">Click the buttons above to trigger a task</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Auto-refresh the task list via AJAX every 3 seconds
+let autoRefreshInterval = null;
+
+function formatTimeAgo(dateString) {
+    if (!dateString) return 'N/A';
+
+    const dt = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now - dt) / 1000); // difference in seconds
+
+    const fullTimestamp = dt.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+
+    let display;
+    if (diff < 60) {
+        display = 'just now';
+    } else if (diff < 3600) {
+        const minutes = Math.floor(diff / 60);
+        display = `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    } else if (diff < 86400) {
+        const hours = Math.floor(diff / 3600);
+        display = `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    } else if (diff < 604800) {
+        const days = Math.floor(diff / 86400);
+        if (days === 1) {
+            display = 'yesterday';
+        } else {
+            display = `${days} days ago`;
+        }
+    } else if (diff < 2592000) {
+        const weeks = Math.floor(diff / 604800);
+        display = `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    } else {
+        const months = Math.floor(diff / 2592000);
+        display = `${months} ${months === 1 ? 'month' : 'months'} ago`;
+    }
+
+    return `<span title="${fullTimestamp}" class="cursor-help">${display}</span>`;
+}
+
+function updateTasksList(tasks) {
+    const tasksList = document.getElementById('tasks-list');
+    if (!tasksList) return;
+
+    if (tasks.length === 0) {
+        tasksList.innerHTML = `
+            <div class="text-center py-12 bg-white rounded-lg">
+                <i class="bi bi-clock-history text-gray-400 text-6xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900">No tasks yet</h3>
+                <p class="text-sm text-gray-500 mt-2">Click the buttons above to trigger a task</p>
+            </div>
+        `;
+        return;
+    }
+
+    tasksList.innerHTML = tasks.map(task => {
+        const statusClass = task.status === 'running' ? 'bg-blue-50' : '';
+        const iconClass = task.status === 'running' ? 'bi-arrow-repeat text-blue-500 animate-spin' :
+                         task.status === 'success' ? 'bi-check-circle-fill text-green-500' :
+                         task.status === 'failed' ? 'bi-x-circle-fill text-red-500' :
+                         'bi-question-circle-fill text-gray-500';
+        const statusBadgeClass = task.status === 'running' ? 'bg-blue-100 text-blue-800' :
+                                 task.status === 'success' ? 'bg-green-100 text-green-800' :
+                                 task.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                 'bg-gray-100 text-gray-800';
+
+        const taskTypeDisplay = task.task_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const startedAt = formatTimeAgo(task.started_at);
+        const completedAt = task.completed_at ? formatTimeAgo(task.completed_at) : '';
+        const duration = task.duration_seconds ? task.duration_seconds.toFixed(1) : '';
+
+        let errorHtml = '';
+        if (task.error_message) {
+            errorHtml = `
+                <div class="mt-2 p-2 bg-red-50 rounded-md">
+                    <p class="text-sm text-red-600">
+                        <i class="bi bi-exclamation-triangle-fill mr-1"></i>
+                        Error: ${task.error_message}
+                    </p>
+                </div>
+            `;
+        }
+
+        let hostInfo = '';
+        if (task.hostname || task.pid) {
+            hostInfo = `
+                <p class="text-xs text-gray-400 mt-1">
+                    ${task.hostname ? `Host: ${task.hostname}` : ''}
+                    ${task.pid ? ` (PID: ${task.pid})` : ''}
+                </p>
+            `;
+        }
+
+        return `
+            <li class="px-4 py-4 sm:px-6 ${statusClass}">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center">
+                            <i class="bi ${iconClass} text-2xl mr-3"></i>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-lg font-medium text-gray-900">${taskTypeDisplay}</p>
+                                    <span class="ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass}">
+                                        ${task.status}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    Started: ${startedAt}
+                                    ${completedAt ? `| Completed: ${completedAt}` : ''}
+                                    ${duration ? `| Duration: ${duration}s` : ''}
+                                </p>
+                                <p class="text-sm text-gray-500">
+                                    Items: ${task.items_processed || 0} processed
+                                    ${task.items_failed > 0 ? `, ${task.items_failed} failed` : ''}
+                                </p>
+                                ${hostInfo}
+                                ${errorHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </li>
+        `;
+    }).join('');
+}
+
+async function refreshTasksList() {
+    try {
+        const response = await fetch('/tasks/api');
+        if (response.ok) {
+            const tasks = await response.json();
+            updateTasksList(tasks);
+        }
+    } catch (error) {
+        console.error('Error refreshing tasks:', error);
+    }
+}
+
+function startAutoRefresh() {
+    if (!autoRefreshInterval) {
+        autoRefreshInterval = setInterval(() => {
+            refreshTasksList();
+        }, 3000);
+    }
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+function toggleDropdown(event) {
+    event.stopPropagation();
+    const menu = document.getElementById('dropdown-menu');
+    menu.classList.toggle('hidden');
+}
+
+function hideDropdown() {
+    const menu = document.getElementById('dropdown-menu');
+    menu.classList.add('hidden');
+}
+
+document.addEventListener('click', function(e) {
+    const dropdown = document.querySelector('.relative');
+    const menu = document.getElementById('dropdown-menu');
+    if (dropdown && !dropdown.contains(e.target) && !menu.classList.contains('hidden')) {
+        hideDropdown();
+    }
+});
+
+// Show notification message
+function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+    const icon = notification.querySelector('.notification-icon');
+    const text = notification.querySelector('.notification-text');
+
+    notification.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'text-green-800', 'text-red-800');
+    icon.classList.remove('bi-check-circle-fill', 'bi-x-circle-fill', 'text-green-400', 'text-red-400');
+
+    if (type === 'success') {
+        notification.classList.add('bg-green-50', 'text-green-800');
+        icon.classList.add('bi-check-circle-fill', 'text-green-400');
+    } else {
+        notification.classList.add('bg-red-50', 'text-red-800');
+        icon.classList.add('bi-x-circle-fill', 'text-red-400');
+    }
+
+    text.textContent = message;
+
+    setTimeout(() => {
+        notification.classList.add('hidden');
+    }, 5000);
+}
+
+function triggerTaskFromDropdown(taskType) {
+    const mainButton = document.getElementById('run-task-btn');
+    const dropdownButton = document.getElementById(`btn-${taskType.replace('_', '-')}`);
+
+    dropdownButton.disabled = true;
+    mainButton.disabled = true;
+
+    const spinner = mainButton.querySelector('.btn-spinner');
+    const btnText = mainButton.querySelector('.btn-text');
+    const chevron = mainButton.querySelector('.bi-chevron-down');
+
+    chevron.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    btnText.textContent = 'Running...';
+
+    hideDropdown();
+    triggerTask(taskType);
+}
+
+// Trigger a task via AJAX
+async function triggerTask(taskType) {
+    try {
+        const response = await fetch(`/tasks/trigger/${taskType}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            showNotification(`${taskType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} started successfully!`, 'success');
+
+            // Refresh the tasks list to show the new task
+            setTimeout(() => {
+                refreshTasksList();
+                resetRunTaskButton();
+            }, 1000);
+        } else {
+            showNotification('Failed to start task. Please try again.', 'error');
+            resetRunTaskButton();
+        }
+    } catch (error) {
+        console.error('Error triggering task:', error);
+        showNotification('An error occurred. Please check the logs.', 'error');
+        resetRunTaskButton();
+    }
+}
+
+function resetRunTaskButton() {
+    const mainButton = document.getElementById('run-task-btn');
+    const spinner = mainButton.querySelector('.btn-spinner');
+    const btnText = mainButton.querySelector('.btn-text');
+    const chevron = mainButton.querySelector('.bi-chevron-down');
+
+    mainButton.disabled = false;
+    spinner.classList.add('hidden');
+    chevron.classList.remove('hidden');
+    btnText.textContent = 'Run Task';
+
+    // Re-enable all dropdown buttons
+    document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+        btn.disabled = false;
+    });
+}
+
+// Start auto-refresh when page loads
+startAutoRefresh();
+
+// Stop auto-refresh when user is about to leave
+window.addEventListener('beforeunload', stopAutoRefresh);
+</script>
+{% endblock %}

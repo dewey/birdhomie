@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _('Face Labeling') }} - Birdhomie{% endblock %}
+
+{% block head %}
+<!-- Annotorious for image annotation -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.7.12/dist/annotorious.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.7.12/dist/annotorious.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Custom Annotorious styling - must come after the CSS is loaded -->
+<style>
+  /* Complete blue theme override for Annotorious - targeting all elements */
+
+  /* SVG shape for annotation box */
+  .a9s-annotationlayer .a9s-annotation svg,
+  .a9s-annotationlayer .a9s-annotation rect,
+  .a9s-annotationlayer .a9s-annotation path,
+  .a9s-annotationlayer .a9s-annotation polygon {
+    stroke: #3b82f6 !important;
+    stroke-width: 3 !important;
+    fill: rgba(59, 130, 246, 0.08) !important;
+  }
+
+  /* Annotation in different states */
+  .a9s-annotation {
+    stroke: #3b82f6 !important;
+    stroke-width: 3 !important;
+    fill: rgba(59, 130, 246, 0.08) !important;
+  }
+
+  .a9s-annotation.editable {
+    stroke: #3b82f6 !important;
+  }
+
+  .a9s-annotation.editable:hover {
+    stroke: #2563eb !important;
+    fill: rgba(37, 99, 235, 0.12) !important;
+  }
+
+  .a9s-annotation.selected {
+    stroke: #1d4ed8 !important;
+    fill: rgba(29, 78, 216, 0.15) !important;
+  }
+
+  /* Outer shape (the main rectangle) */
+  .a9s-outer {
+    stroke: #3b82f6 !important;
+    stroke-width: 3 !important;
+    fill: rgba(59, 130, 246, 0.08) !important;
+  }
+
+  .a9s-outer:hover {
+    stroke: #2563eb !important;
+    fill: rgba(37, 99, 235, 0.12) !important;
+  }
+
+  /* Inner shape */
+  .a9s-inner {
+    stroke: #3b82f6 !important;
+    fill: none !important;
+  }
+
+  /* Drag handles (corners) */
+  .a9s-handle,
+  .a9s-handle-outer,
+  .a9s-handle-inner {
+    stroke: #3b82f6 !important;
+    stroke-width: 2 !important;
+    fill: white !important;
+  }
+
+  .a9s-handle {
+    r: 6 !important;
+  }
+
+  .a9s-handle:hover {
+    r: 8 !important;
+    stroke: #1d4ed8 !important;
+    stroke-width: 3 !important;
+    fill: #dbeafe !important;
+  }
+
+  /* Selection box */
+  .a9s-selection {
+    stroke: #3b82f6 !important;
+    stroke-width: 2 !important;
+    fill: rgba(59, 130, 246, 0.1) !important;
+  }
+
+  /* Remove any default yellow/black colors */
+  svg .a9s-annotation,
+  svg.a9s-annotationlayer .a9s-annotation {
+    stroke: #3b82f6 !important;
+    fill: rgba(59, 130, 246, 0.08) !important;
+  }
+
+  /* Ensure annotation layer is interactive */
+  .a9s-annotationlayer {
+    pointer-events: all !important;
+  }
+</style>
+
+<!-- Error notification -->
+<div id="error-notification" class="hidden fixed top-4 right-4 z-50 bg-red-50 border border-red-200 rounded-md p-4 shadow-lg">
+  <div class="flex items-center">
+    <i class="bi bi-exclamation-triangle text-red-600 mr-2"></i>
+    <span class="text-sm text-red-800" id="error-message"></span>
+  </div>
+</div>
+
+<!-- Success notification -->
+<div id="success-notification" class="hidden fixed top-4 right-4 z-50 bg-green-50 border border-green-200 rounded-md p-4 shadow-lg">
+  <div class="flex items-center">
+    <i class="bi bi-check-circle text-green-600 mr-2"></i>
+    <span class="text-sm text-green-800" id="success-message"></span>
+  </div>
+</div>
+
+<div class="container mx-auto px-4 py-8">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">{{ _('Face Labeling') }}</h1>
+
+    <!-- Progress stats -->
+    <div class="flex gap-4 text-sm">
+      <span class="px-3 py-1 bg-yellow-100 rounded">
+        {{ stats.pending }} {{ _('pending') }}
+      </span>
+      <span class="px-3 py-1 bg-green-100 rounded">
+        {{ stats.reviewed }} {{ _('reviewed') }}
+      </span>
+      <span class="px-3 py-1 bg-blue-100 rounded">
+        {{ stats.total }} {{ _('total') }}
+      </span>
+    </div>
+  </div>
+
+  {% if current_detection %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Image with bbox overlay -->
+    <div class="bg-gray-100 p-8 rounded-lg">
+      <img id="crop-image"
+           src="/data/output/{{ current_detection.crop_path }}"
+           alt="Bird crop"
+           class="w-full rounded-lg shadow-lg"
+           crossorigin="anonymous">
+    </div>
+
+    <!-- Info and controls -->
+    <div>
+      <div class="bg-white p-6 rounded-lg shadow mb-4">
+        <h2 class="text-xl font-semibold mb-4">
+          {{ current_detection.species_name }}
+        </h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-gray-600">{{ _('Detection ID') }}:</dt>
+            <dd class="font-mono text-blue-600">{{ current_detection.id }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-gray-600">{{ _('Confidence') }}:</dt>
+            <dd>{{ "%.1f"|format(current_detection.detection_confidence * 100) }}%</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-gray-600">{{ _('Frame Time') }}:</dt>
+            <dd>{{ "%.2f"|format(current_detection.frame_timestamp) }}s</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-gray-600">{{ _('Status') }}:</dt>
+            <dd>
+              <span class="px-2 py-1 bg-yellow-100 rounded text-xs">
+                {{ current_detection.annotation_source or 'pending' }}
+              </span>
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="bg-white p-6 rounded-lg shadow">
+        <h3 class="font-semibold mb-4">{{ _('Review Actions') }}</h3>
+        <div class="mb-3 p-2 bg-blue-50 rounded text-xs text-blue-800">
+          <i class="bi bi-info-circle mr-1"></i>
+          {{ _('Tip') }}: Click and drag the blue corners to adjust the bounding box
+        </div>
+        <div class="space-y-2">
+          <button id="confirm-btn"
+                  class="w-full px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+            <kbd class="px-2 py-1 text-xs bg-white text-gray-800 rounded">Space</kbd> {{ _('Confirm Annotation') }}
+          </button>
+          <button id="no-face-btn"
+                  class="w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+            <kbd class="px-2 py-1 text-xs bg-white text-gray-800 rounded">N</kbd> {{ _('No Visible Face') }}
+          </button>
+        </div>
+
+        <!-- Keyboard shortcuts help -->
+        <div class="mt-4 pt-4 border-t text-xs text-gray-600">
+          <p class="mb-2"><strong>{{ _('Keyboard Shortcuts') }}:</strong></p>
+          <ul class="space-y-1">
+            <li><kbd class="px-1 py-0.5 bg-gray-100 rounded">Space</kbd> - {{ _('Confirm') }}</li>
+            <li><kbd class="px-1 py-0.5 bg-gray-100 rounded">N</kbd> - {{ _('No face') }}</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="mt-4 text-sm text-gray-600 text-center">
+        {{ _('Detection') }} {{ current_index + 1 }} / {{ stats.pending + current_index }}
+      </div>
+
+      <!-- Navigation hint -->
+      <div class="mt-2 text-xs text-gray-500 text-center">
+        Use <kbd class="px-1 py-0.5 bg-gray-100 rounded">←</kbd> <kbd class="px-1 py-0.5 bg-gray-100 rounded">→</kbd> to navigate
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="text-center py-12">
+    <p class="text-xl text-gray-600 mb-4">
+      {{ _('All caught up! No pending annotations.') }}
+    </p>
+    <a href="{{ url_for('labeling_stats') }}"
+       class="inline-block px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+      {{ _('View Statistics') }}
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{% if current_detection %}
+<script>
+// Notification functions
+function showError(message) {
+  const notification = document.getElementById('error-notification');
+  const errorMessage = document.getElementById('error-message');
+  errorMessage.textContent = message;
+  notification.classList.remove('hidden');
+  setTimeout(() => notification.classList.add('hidden'), 5000);
+}
+
+function showSuccess(message) {
+  const notification = document.getElementById('success-notification');
+  const successMessage = document.getElementById('success-message');
+  successMessage.textContent = message;
+  notification.classList.remove('hidden');
+  setTimeout(() => notification.classList.add('hidden'), 3000);
+}
+
+// Initialize Annotorious for bbox editing
+const img = document.getElementById('crop-image');
+let anno = null;
+let bboxModified = false;
+
+img.onload = function() {
+  anno = Annotorious.init({
+    image: img,
+    locale: 'auto',
+    allowEmpty: false,
+    disableEditor: true,
+    fragmentUnit: 'pixel'
+  });
+
+  // Add initial annotation
+  const cropBbox = {
+    x1: {{ current_detection.bbox_x1 }},
+    y1: {{ current_detection.bbox_y1 }},
+    x2: {{ current_detection.bbox_x2 }},
+    y2: {{ current_detection.bbox_y2 }}
+  };
+
+  const faceBbox = {
+    x1: {{ current_detection.face_bbox_x1 or 0 }},
+    y1: {{ current_detection.face_bbox_y1 or 0 }},
+    x2: {{ current_detection.face_bbox_x2 or 100 }},
+    y2: {{ current_detection.face_bbox_y2 or 100 }}
+  };
+
+  // Convert face bbox from absolute (full-frame) coordinates to crop-relative pixels
+  const pixelX = faceBbox.x1 - cropBbox.x1;
+  const pixelY = faceBbox.y1 - cropBbox.y1;
+  const pixelW = faceBbox.x2 - faceBbox.x1;
+  const pixelH = faceBbox.y2 - faceBbox.y1;
+
+  const annotation = {
+    '@context': 'http://www.w3.org/ns/anno.jsonld',
+    id: '#face-bbox-{{ current_detection.id }}',
+    type: 'Annotation',
+    body: [{
+      type: 'TextualBody',
+      value: 'Face',
+      purpose: 'tagging'
+    }],
+    target: {
+      selector: {
+        type: 'FragmentSelector',
+        conformsTo: 'http://www.w3.org/TR/media-frags/',
+        value: `xywh=pixel:${pixelX},${pixelY},${pixelW},${pixelH}`
+      }
+    }
+  };
+
+  anno.addAnnotation(annotation);
+
+  // Track modifications - changeSelectionTarget fires when user drags handles
+  anno.on('changeSelectionTarget', function(target) {
+    bboxModified = true;
+    const btn = document.getElementById('confirm-btn');
+    btn.innerHTML = '<kbd class="px-2 py-1 text-xs bg-white text-gray-800 rounded">Space</kbd> Save Changes';
+  });
+};
+
+// Cleanup Annotorious instance when navigating away
+window.addEventListener('beforeunload', function() {
+  if (anno) {
+    anno.destroy();
+  }
+});
+
+// Navigation state
+let navigating = false;
+
+// Keyboard controls
+document.addEventListener('keydown', (e) => {
+  if (navigating) return;
+
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (bboxModified) {
+      saveEditedBbox();
+    } else {
+      confirmAnnotation();
+    }
+  } else if (e.key === 'n' || e.key === 'N') {
+    e.preventDefault();
+    markNoFace();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    navigateDetection(-1);
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    navigateDetection(1);
+  }
+});
+
+// Navigate to next/previous detection
+function navigateDetection(direction) {
+  navigating = true;
+  showSuccess(direction > 0 ? 'Loading next detection...' : 'Loading previous detection...');
+  setTimeout(() => location.reload(), 500);
+}
+
+// Action handlers
+async function confirmAnnotation() {
+  if (navigating) return;
+  navigating = true;
+
+  try {
+    const response = await fetch('/api/labeling/{{ current_detection.id }}/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.success) {
+      showSuccess('Annotation confirmed!');
+      const returnUrl = new URLSearchParams(window.location.search).get('return_url');
+      setTimeout(() => window.location.href = returnUrl ? decodeURIComponent(returnUrl) : '/labeling', 500);
+    } else {
+      throw new Error('Server returned success: false');
+    }
+  } catch (error) {
+    console.error('Error confirming annotation:', error);
+    showError('Failed to confirm annotation. Please try again.');
+    navigating = false;
+  }
+}
+
+async function saveEditedBbox() {
+  if (navigating) return;
+  navigating = true;
+
+  try {
+    // Create a promise that resolves when updateAnnotation fires
+    const updatePromise = new Promise((resolve, reject) => {
+      const handler = (annotation, previous) => {
+        anno.off('updateAnnotation', handler); // Remove listener
+        resolve(annotation);
+      };
+      anno.on('updateAnnotation', handler);
+
+      // Set a timeout in case updateAnnotation never fires
+      setTimeout(() => {
+        anno.off('updateAnnotation', handler);
+        reject(new Error('updateAnnotation timeout'));
+      }, 5000);
+    });
+
+    // Call saveSelected() to commit the draft changes (like pressing "Ok" in the editor)
+    await anno.saveSelected();
+
+    // Wait for updateAnnotation event and get the committed annotation
+    const annotation = await updatePromise;
+
+    const selector = annotation.target.selector.value;
+    const match = selector.match(/xywh=pixel:([0-9.]+),([0-9.]+),([0-9.]+),([0-9.]+)/);
+
+    if (!match) {
+      throw new Error('Invalid annotation format');
+    }
+
+    const [, x, y, w, h] = match.map(Number);
+
+    // Convert back to absolute coordinates
+    const cropBbox = {
+      x1: {{ current_detection.bbox_x1 }},
+      y1: {{ current_detection.bbox_y1 }}
+    };
+
+    const data = {
+      x1: Math.round(cropBbox.x1 + x),
+      y1: Math.round(cropBbox.y1 + y),
+      x2: Math.round(cropBbox.x1 + x + w),
+      y2: Math.round(cropBbox.y1 + y + h)
+    };
+
+    const response = await fetch('/api/labeling/{{ current_detection.id }}/update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.success) {
+      showSuccess('Changes saved!');
+      const returnUrl = new URLSearchParams(window.location.search).get('return_url');
+      setTimeout(() => window.location.href = returnUrl ? decodeURIComponent(returnUrl) : '/labeling', 500);
+    } else {
+      throw new Error('Server returned success: false');
+    }
+  } catch (error) {
+    console.error('Error updating bbox:', error);
+    showError('Failed to save changes. Please try again.');
+    navigating = false;
+  }
+}
+
+async function markNoFace() {
+  if (navigating) return;
+  navigating = true;
+
+  try {
+    const response = await fetch('/api/labeling/{{ current_detection.id }}/no-face', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.success) {
+      showSuccess('Marked as no face!');
+      const returnUrl = new URLSearchParams(window.location.search).get('return_url');
+      setTimeout(() => window.location.href = returnUrl ? decodeURIComponent(returnUrl) : '/labeling', 500);
+    } else {
+      throw new Error('Server returned success: false');
+    }
+  } catch (error) {
+    console.error('Error marking no face:', error);
+    showError('Failed to mark as no face. Please try again.');
+    navigating = false;
+  }
+}
+
+// Button click handlers
+document.getElementById('confirm-btn').addEventListener('click', () => {
+  if (bboxModified) {
+    saveEditedBbox();
+  } else {
+    confirmAnnotation();
+  }
+});
+document.getElementById('no-face-btn').addEventListener('click', markNoFace);
+</script>
+{% endif %}
+{% endblock %}

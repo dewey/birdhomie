@@ -1,0 +1,28 @@
+# Flask debug settings
+export FLASK_DEBUG=1
+export SECRET_KEY=dev-secret-key
+
+# UniFi Protect NVR settings
+export UFP_ADDRESS=192.168.1.1
+export UFP_USERNAME=your-username
+export UFP_PASSWORD=your-password
+export UFP_CAMERA_ID=your-camera-id
+export UFP_DETECTION_TYPES=motion
+export UFP_SSL_VERIFY=false
+
+# Task intervals (in minutes)
+export UFP_DOWNLOAD_INTERVAL_MINUTES=30
+export PROCESSOR_INTERVAL_MINUTES=5
+
+# Detection confidence thresholds (0.0-1.0)
+export MIN_SPECIES_CONFIDENCE=0.85
+export MIN_DETECTION_CONFIDENCE=0.80
+
+# Video processing
+export FRAME_SKIP=5
+
+# Data retention
+export FILE_RETENTION_DAYS=30
+
+# Face annotation processing
+export FACE_ANNOTATION_BATCH_SIZE=100

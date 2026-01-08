@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Species - Birdhomie{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <h1 class="text-3xl font-bold text-gray-900 mb-6">All Species</h1>
+
+    {% if species %}
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul class="divide-y divide-gray-200">
+            {% for sp in species %}
+            <li>
+                <a href="/species/{{ sp.taxon_id }}" class="block hover:bg-gray-50">
+                    <div class="px-4 py-4 sm:px-6 flex items-center">
+                        {% if sp.image_path %}
+                        <img src="/data/{{ sp.image_path.replace('/Users/philippdefner/repos/github.com/dewey/birdhomie/data/', '') }}" alt="{{ sp.name }}" class="h-16 w-16 rounded-md object-cover mr-4">
+                        {% else %}
+                        <div class="h-16 w-16 bg-gray-200 rounded-md mr-4 flex items-center justify-center">
+                            <i class="bi bi-image text-gray-400"></i>
+                        </div>
+                        {% endif %}
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <p class="text-lg font-medium text-blue-600">{{ sp.name }}</p>
+                                <p class="text-sm text-gray-500">{{ sp.visit_count }} visits</p>
+                            </div>
+                            <p class="text-sm text-gray-500 italic">{{ sp.scientific_name }}</p>
+                            {% if sp.last_seen %}
+                            <p class="text-xs text-gray-400 mt-1">Last seen: {{ sp.last_seen|format_time_ago }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <i class="bi bi-search text-gray-400 text-6xl mb-4"></i>
+        <h3 class="text-lg font-medium text-gray-900">No species detected yet</h3>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
