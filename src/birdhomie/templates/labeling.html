@@ -99,6 +99,15 @@
   /* Ensure annotation layer is interactive */
   .a9s-annotationlayer {
     pointer-events: all !important;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Safari-specific fixes */
+  @supports (-webkit-appearance:none) {
+    .a9s-annotationlayer svg {
+      pointer-events: all !important;
+    }
   }
 </style>
 
@@ -139,12 +148,12 @@
   {% if current_detection %}
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
     <!-- Image with bbox overlay -->
-    <div class="bg-gray-100 p-8 rounded-lg">
+    <div class="bg-gray-100 p-8 rounded-lg flex items-center justify-center">
       <img id="crop-image"
            src="/data/output/{{ current_detection.crop_path }}"
            alt="Bird crop"
-           class="w-full rounded-lg shadow-lg"
-           crossorigin="anonymous">
+           class="max-w-full h-auto rounded-lg shadow-lg"
+           style="max-height: 600px;">
     </div>
 
     <!-- Info and controls -->
@@ -252,64 +261,89 @@ function showSuccess(message) {
 const img = document.getElementById('crop-image');
 let anno = null;
 let bboxModified = false;
+let initialized = false;
 
-img.onload = function() {
-  anno = Annotorious.init({
-    image: img,
-    locale: 'auto',
-    allowEmpty: false,
-    disableEditor: true,
-    fragmentUnit: 'pixel'
-  });
+function initAnnotorious() {
+  // Prevent double initialization
+  if (initialized || !img.complete || img.naturalWidth === 0) {
+    return;
+  }
+  initialized = true;
 
-  // Add initial annotation
-  const cropBbox = {
-    x1: {{ current_detection.bbox_x1 }},
-    y1: {{ current_detection.bbox_y1 }},
-    x2: {{ current_detection.bbox_x2 }},
-    y2: {{ current_detection.bbox_y2 }}
-  };
+  // Wait for next frame to ensure image dimensions are stable
+  requestAnimationFrame(() => {
+    anno = Annotorious.init({
+      image: img,
+      locale: 'auto',
+      allowEmpty: false,
+      disableEditor: true,
+      fragmentUnit: 'pixel'
+    });
 
-  const faceBbox = {
-    x1: {{ current_detection.face_bbox_x1 or 0 }},
-    y1: {{ current_detection.face_bbox_y1 or 0 }},
-    x2: {{ current_detection.face_bbox_x2 or 100 }},
-    y2: {{ current_detection.face_bbox_y2 or 100 }}
-  };
+    // Add initial annotation
+    const cropBbox = {
+      x1: {{ current_detection.bbox_x1 }},
+      y1: {{ current_detection.bbox_y1 }},
+      x2: {{ current_detection.bbox_x2 }},
+      y2: {{ current_detection.bbox_y2 }}
+    };
 
-  // Convert face bbox from absolute (full-frame) coordinates to crop-relative pixels
-  const pixelX = faceBbox.x1 - cropBbox.x1;
-  const pixelY = faceBbox.y1 - cropBbox.y1;
-  const pixelW = faceBbox.x2 - faceBbox.x1;
-  const pixelH = faceBbox.y2 - faceBbox.y1;
+    const faceBbox = {
+      x1: {{ current_detection.face_bbox_x1 or 0 }},
+      y1: {{ current_detection.face_bbox_y1 or 0 }},
+      x2: {{ current_detection.face_bbox_x2 or 100 }},
+      y2: {{ current_detection.face_bbox_y2 or 100 }}
+    };
 
-  const annotation = {
-    '@context': 'http://www.w3.org/ns/anno.jsonld',
-    id: '#face-bbox-{{ current_detection.id }}',
-    type: 'Annotation',
-    body: [{
-      type: 'TextualBody',
-      value: 'Face',
-      purpose: 'tagging'
-    }],
-    target: {
-      selector: {
-        type: 'FragmentSelector',
-        conformsTo: 'http://www.w3.org/TR/media-frags/',
-        value: `xywh=pixel:${pixelX},${pixelY},${pixelW},${pixelH}`
+    // Convert face bbox from absolute (full-frame) coordinates to crop-relative pixels
+    const pixelX = faceBbox.x1 - cropBbox.x1;
+    const pixelY = faceBbox.y1 - cropBbox.y1;
+    const pixelW = faceBbox.x2 - faceBbox.x1;
+    const pixelH = faceBbox.y2 - faceBbox.y1;
+
+    const annotation = {
+      '@context': 'http://www.w3.org/ns/anno.jsonld',
+      id: '#face-bbox-{{ current_detection.id }}',
+      type: 'Annotation',
+      body: [{
+        type: 'TextualBody',
+        value: 'Face',
+        purpose: 'tagging'
+      }],
+      target: {
+        selector: {
+          type: 'FragmentSelector',
+          conformsTo: 'http://www.w3.org/TR/media-frags/',
+          value: `xywh=pixel:${pixelX},${pixelY},${pixelW},${pixelH}`
+        }
       }
-    }
-  };
+    };
 
-  anno.addAnnotation(annotation);
+    anno.addAnnotation(annotation);
 
-  // Track modifications - changeSelectionTarget fires when user drags handles
-  anno.on('changeSelectionTarget', function(target) {
-    bboxModified = true;
-    const btn = document.getElementById('confirm-btn');
-    btn.innerHTML = '<kbd class="px-2 py-1 text-xs bg-white text-gray-800 rounded">Space</kbd> Save Changes';
+    // Select the annotation to make it immediately editable
+    // Use setTimeout for Safari compatibility - Safari needs time to process the annotation
+    setTimeout(() => {
+      anno.selectAnnotation(annotation.id);
+    }, 150);
+
+    // Track modifications - changeSelectionTarget fires when user drags handles
+    anno.on('changeSelectionTarget', function(target) {
+      bboxModified = true;
+      const btn = document.getElementById('confirm-btn');
+      btn.innerHTML = '<kbd class="px-2 py-1 text-xs bg-white text-gray-800 rounded">Space</kbd> Save Changes';
+    });
   });
-};
+}
+
+// Handle both cached and non-cached images
+if (img.complete && img.naturalWidth > 0) {
+  // Image is already loaded (cached)
+  initAnnotorious();
+} else {
+  // Image needs to load
+  img.onload = initAnnotorious;
+}
 
 // Cleanup Annotorious instance when navigating away
 window.addEventListener('beforeunload', function() {

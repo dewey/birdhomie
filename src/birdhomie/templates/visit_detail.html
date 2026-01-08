@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros.html' import bird_thumbnail %}
 
 {% block title %}Visit #{{ visit.id }} - {{ visit.species_name }} - Birdhomie{% endblock %}
 
@@ -149,16 +150,14 @@
                 </h2>
 
                 {% if detections %}
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                     {% for detection in detections %}
-                    <div class="relative group cursor-pointer rounded-lg {% if visit.best_detection_id == detection.id %}ring-4 ring-yellow-400{% endif %}" onclick="openLightbox({{ loop.index0 }})">
-                        <img src="/data/output/{{ detection.crop_path }}"
-                             alt="Frame {{ detection.frame_number }}"
-                             class="w-full h-32 object-cover rounded-lg shadow hover:shadow-lg transition-shadow">
+                    <div class="relative group cursor-pointer rounded-lg {% if visit.cover_detection_id == detection.id %}ring-4 ring-yellow-400{% endif %}" onclick="openLightbox('/data/output/{{ detection.crop_path }}', '{{ visit.event_start|format_datetime('datetime', False) }}', {{ visit.id }}, {{ detection.id }}, '{{ detection.annotation_source or '' }}', 'Frame {{ detection.frame_number }} - {{ "%.1f"|format(detection.frame_timestamp) }}s - Confidence: {{ "%.0f"|format(detection.detection_confidence * 100) if detection.detection_confidence else "N/A" }}%')">
+                        {{ bird_thumbnail(detection.id, 128, 'w-full h-40 rounded-lg shadow hover:shadow-lg transition-shadow', 'Frame ' ~ detection.frame_number, cache_key=detection.frame_timestamp) }}
 
-                        <!-- Best detection badge -->
-                        {% if visit.best_detection_id == detection.id %}
-                        <span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 rounded-full p-1.5 w-6 h-6 flex items-center justify-center">
+                        <!-- Cover image badge (yellow star) -->
+                        {% if visit.cover_detection_id == detection.id %}
+                        <span class="absolute top-2 right-2 bg-yellow-400 text-yellow-900 rounded-full p-1.5 w-6 h-6 flex items-center justify-center" title="Cover Image">
                             <i class="bi bi-star-fill text-xs"></i>
                         </span>
                         {% endif %}
@@ -185,75 +184,193 @@
 
             <!-- File Link -->
             <div class="border-t border-gray-200 pt-6 mt-6">
-                <a href="/files" class="inline-flex items-center text-blue-600 hover:text-blue-800">
-                    <i class="bi bi-file-earmark-text mr-1"></i> View all files
+                <a href="/files/{{ visit.file_id }}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+                    <i class="bi bi-file-earmark-text mr-1"></i> View source file
                 </a>
             </div>
         </div>
     </div>
 </div>
 
-<!-- PhotoSwipe markup -->
-<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="pswp__bg"></div>
-    <div class="pswp__scroll-wrap">
-        <div class="pswp__container">
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
-            <div class="pswp__item"></div>
+<!-- Lightbox Modal -->
+<div id="lightbox" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50" onclick="closeLightbox()">
+    <div class="h-full w-full flex flex-col items-center justify-center p-8" onclick="event.stopPropagation()">
+        <!-- Close button -->
+        <button onclick="closeLightbox()" class="absolute top-4 right-4 text-white hover:text-gray-300 text-3xl font-bold z-10">
+            <i class="bi bi-x-circle-fill"></i>
+        </button>
+
+        <!-- Previous button -->
+        <button id="lightbox-prev" onclick="navigateLightbox(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 text-5xl z-10 bg-black bg-opacity-50 rounded-full w-14 h-14 flex items-center justify-center">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+
+        <!-- Next button -->
+        <button id="lightbox-next" onclick="navigateLightbox(1)" class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 text-5xl z-10 bg-black bg-opacity-50 rounded-full w-14 h-14 flex items-center justify-center">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+
+        <!-- Fixed size image container -->
+        <div class="relative flex items-center justify-center mb-4" style="width: 90vw; height: 75vh; max-width: 1400px;">
+            <img id="lightbox-image" src="" alt="Full size detection" class="w-full h-full rounded-lg object-contain">
         </div>
 
-        <div class="pswp__ui pswp__ui--hidden">
-            <div class="pswp__top-bar">
-                <div class="pswp__counter"></div>
-                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
-                <button class="pswp__button pswp__button--share" title="Share"></button>
-                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
-                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
-                <div class="pswp__preloader">
-                    <div class="pswp__preloader__icn">
-                        <div class="pswp__preloader__cut">
-                            <div class="pswp__preloader__donut"></div>
-                        </div>
-                    </div>
-                </div>
+        <!-- Info bar -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white bg-opacity-10 backdrop-blur-sm rounded-lg p-4 max-w-5xl w-full">
+            <div class="text-white text-sm">
+                <p id="lightbox-caption" class="font-semibold mb-1"></p>
+                <p id="lightbox-details" class="text-gray-300 text-xs"></p>
+                <p id="lightbox-counter" class="text-gray-400 text-xs mt-1"></p>
             </div>
-            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
-                <div class="pswp__share-tooltip"></div>
-            </div>
-            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>
-            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button>
-            <div class="pswp__caption">
-                <div class="pswp__caption__center"></div>
+            <div class="flex gap-2 flex-shrink-0">
+                <a id="lightbox-label-link" href="#" class="inline-flex items-center px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md text-sm font-medium transition-colors">
+                    <i class="bi bi-pencil-square mr-2"></i><span id="lightbox-label-text">Label face</span>
+                </a>
+                <button id="lightbox-cover-btn" onclick="setCoverImage()" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium transition-colors">
+                    <i class="bi bi-image mr-2"></i><span id="lightbox-cover-text">Set as Cover</span>
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// PhotoSwipe lightbox data
-var pswpItems = [
+// Detections data array
+const detectionsData = [
     {% for detection in detections %}
     {
-        src: '/data/output/{{ detection.crop_path }}',
-        w: 800,
-        h: 600,
-        title: 'Frame {{ detection.frame_number }} - {{ "%.1f"|format(detection.frame_timestamp) }}s - Confidence: {{ "%.0f"|format(detection.detection_confidence * 100) if detection.detection_confidence else "N/A" }}%'
+        imagePath: '/data/output/{{ detection.crop_path }}',
+        eventStart: '{{ visit.event_start|format_datetime('datetime', False) }}',
+        visitId: {{ visit.id }},
+        detectionId: {{ detection.id }},
+        annotationSource: '{{ detection.annotation_source or '' }}',
+        detailsText: 'Frame {{ detection.frame_number }} - {{ "%.1f"|format(detection.frame_timestamp) }}s - Confidence: {{ "%.0f"|format(detection.detection_confidence * 100) if detection.detection_confidence else "N/A" }}%',
+        isCover: {% if visit.cover_detection_id == detection.id %}true{% else %}false{% endif %}
     }{% if not loop.last %},{% endif %}
     {% endfor %}
 ];
 
-function openLightbox(index) {
-    var pswpElement = document.querySelectorAll('.pswp')[0];
-    var options = {
-        index: index,
-        bgOpacity: 0.9,
-        showHideOpacity: true,
-        history: false
-    };
-    var gallery = new PhotoSwipe(pswpElement, PhotoSwipeUI_Default, pswpItems, options);
-    gallery.init();
+let currentLightboxIndex = 0;
+
+function openLightbox(imagePath, eventStart, visitId, detectionId, annotationSource, detailsText) {
+    // Find the index of this detection
+    currentLightboxIndex = detectionsData.findIndex(d => d.detectionId === detectionId);
+    if (currentLightboxIndex === -1) currentLightboxIndex = 0;
+
+    showLightboxImage(currentLightboxIndex);
 }
+
+function showLightboxImage(index) {
+    const detection = detectionsData[index];
+    const lightbox = document.getElementById('lightbox');
+    const image = document.getElementById('lightbox-image');
+    const caption = document.getElementById('lightbox-caption');
+    const details = document.getElementById('lightbox-details');
+    const counter = document.getElementById('lightbox-counter');
+    const labelLink = document.getElementById('lightbox-label-link');
+    const labelText = document.getElementById('lightbox-label-text');
+    const prevBtn = document.getElementById('lightbox-prev');
+    const nextBtn = document.getElementById('lightbox-next');
+
+    // Update image and content
+    image.src = detection.imagePath;
+    caption.textContent = `Detection from ${detection.eventStart}`;
+    details.textContent = detection.detailsText;
+    counter.textContent = `${index + 1} / ${detectionsData.length}`;
+
+    // Determine if this is a relabel based on annotation source
+    const isHumanLabeled = detection.annotationSource === 'human_confirmed' || detection.annotationSource === 'human_corrected';
+    labelText.textContent = isHumanLabeled ? 'Re-label face' : 'Label face';
+
+    // Add return URL to redirect back to lightbox after labeling
+    const currentUrl = encodeURIComponent(window.location.pathname + `#detection-${detection.detectionId}`);
+    labelLink.href = `/labeling?id=${detection.detectionId}&return_url=${currentUrl}`;
+
+    // Update cover button text and style based on whether this detection is the cover
+    const coverBtn = document.getElementById('lightbox-cover-btn');
+    const coverText = document.getElementById('lightbox-cover-text');
+
+    if (detection.isCover) {
+        coverText.textContent = 'Cover Image (Active)';
+        coverBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+        coverBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-700');
+    } else {
+        coverText.textContent = 'Set as Cover';
+        coverBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-700');
+        coverBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+    }
+
+    // Show/hide navigation buttons
+    prevBtn.style.display = index > 0 ? 'block' : 'none';
+    nextBtn.style.display = index < detectionsData.length - 1 ? 'block' : 'none';
+
+    lightbox.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function navigateLightbox(direction) {
+    const newIndex = currentLightboxIndex + direction;
+    if (newIndex >= 0 && newIndex < detectionsData.length) {
+        currentLightboxIndex = newIndex;
+        showLightboxImage(currentLightboxIndex);
+    }
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    lightbox.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+async function setCoverImage() {
+    const detection = detectionsData[currentLightboxIndex];
+
+    try {
+        const response = await fetch(`/api/visits/${detection.visitId}/set-cover/${detection.detectionId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+
+        if (!response.ok) throw new Error('Failed to set cover');
+
+        const data = await response.json();
+        if (data.success) {
+            window.location.reload();
+        }
+    } catch (error) {
+        console.error('Error setting cover:', error);
+        alert('Failed to set cover image. Please try again.');
+    }
+}
+
+// Keyboard controls
+document.addEventListener('keydown', function(event) {
+    const lightbox = document.getElementById('lightbox');
+    if (lightbox.classList.contains('hidden')) return;
+
+    if (event.key === 'Escape') {
+        closeLightbox();
+    } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        navigateLightbox(-1);
+    } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        navigateLightbox(1);
+    }
+});
+
+// Auto-open lightbox if returning from labeling with detection ID in hash
+document.addEventListener('DOMContentLoaded', function() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#detection-')) {
+        const detectionId = parseInt(hash.replace('#detection-', ''));
+        const index = detectionsData.findIndex(d => d.detectionId === detectionId);
+        if (index !== -1) {
+            currentLightboxIndex = index;
+            showLightboxImage(currentLightboxIndex);
+        }
+    }
+});
 
 // Clear other field when one is selected
 document.addEventListener('DOMContentLoaded', function() {

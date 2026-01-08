@@ -370,16 +370,16 @@ class FileProcessor:
                         1 if det['is_edge'] else 0
                     ))
 
-                    # Set best detection
+                    # Set cover detection (auto-populate with best)
                     if det is best_det:
                         best_detection_id = cursor.lastrowid
 
-                # Update visit with best detection
+                # Update visit with cover detection (auto-set to best)
                 conn.execute("""
                     UPDATE visits
-                    SET best_detection_id = ?
+                    SET best_detection_id = ?, cover_detection_id = ?
                     WHERE id = ?
-                """, (best_detection_id, visit_id))
+                """, (best_detection_id, best_detection_id, visit_id))
 
             logger.info("visit_created", extra={
                 "visit_id": visit_id,

@@ -434,12 +434,12 @@ def species_detail(taxon_id):
                 v.id,
                 v.species_confidence,
                 v.detection_count,
-                v.best_detection_id,
+                v.cover_detection_id,
                 f.event_start,
                 d.crop_path as best_crop
             FROM visits v
             JOIN files f ON v.file_id = f.id
-            LEFT JOIN detections d ON v.best_detection_id = d.id
+            LEFT JOIN detections d ON d.id = v.cover_detection_id
             WHERE COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = ?
             ORDER BY f.event_start DESC
             LIMIT 20
@@ -459,7 +459,7 @@ def species_detail(taxon_id):
             JOIN visits v ON d.visit_id = v.id
             JOIN files f ON v.file_id = f.id
             WHERE COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = ?
-                AND d.id = v.best_detection_id
+                AND d.id = v.cover_detection_id
                 AND d.crop_path IS NOT NULL
                 AND (d.annotation_source IS NULL OR d.annotation_source != 'no_face')
             ORDER BY f.event_start DESC
@@ -507,7 +507,8 @@ def visit_detail(visit_id):
                 species_confidence,
                 species_confidence_model,
                 crop_path,
-                bbox_x1, bbox_y1, bbox_x2, bbox_y2
+                bbox_x1, bbox_y1, bbox_x2, bbox_y2,
+                annotation_source
             FROM detections
             WHERE visit_id = ?
             ORDER BY frame_number
@@ -593,6 +594,91 @@ def files_list():
         """).fetchall()
 
     return render_template('files_list.html', files=files)
+
+
+@app.route('/api/visits/<int:visit_id>/set-cover/<int:detection_id>', methods=['POST'])
+def set_visit_cover(visit_id, detection_id):
+    """Set a detection as the cover image for a visit."""
+    with db.get_connection() as conn:
+        detection = conn.execute("""
+            SELECT id FROM detections
+            WHERE id = ? AND visit_id = ?
+        """, (detection_id, visit_id)).fetchone()
+
+        if not detection:
+            return jsonify({'success': False, 'error': 'Detection not found or does not belong to visit'}), 404
+
+        conn.execute("""
+            UPDATE visits
+            SET cover_detection_id = ?
+            WHERE id = ?
+        """, (detection_id, visit_id))
+        conn.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/files/<int:file_id>')
+def file_detail(file_id):
+    """File detail page showing all content from this file's output folder."""
+    with db.get_connection() as conn:
+        file = conn.execute("""
+            SELECT
+                id,
+                file_path,
+                event_start,
+                duration_seconds,
+                output_dir,
+                status
+            FROM files
+            WHERE id = ?
+        """, (file_id,)).fetchone()
+
+        if not file:
+            return "File not found", 404
+
+        visits = conn.execute(f"""
+            SELECT
+                v.id,
+                v.species_confidence,
+                v.detection_count,
+                t.taxon_id,
+                COALESCE(t.common_name_{g.locale}, t.scientific_name) as species_name,
+                t.scientific_name
+            FROM visits v
+            JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
+            WHERE v.file_id = ?
+            ORDER BY v.species_confidence DESC
+        """, (file_id,)).fetchall()
+
+        all_detections = conn.execute("""
+            SELECT
+                d.id as detection_id,
+                d.crop_path,
+                d.detection_confidence,
+                d.frame_number,
+                d.frame_timestamp,
+                d.annotation_source,
+                COALESCE(d.reviewed_at, d.annotated_at) as cache_key,
+                v.id as visit_id,
+                v.cover_detection_id as display_detection_id
+            FROM detections d
+            JOIN visits v ON d.visit_id = v.id
+            WHERE v.file_id = ?
+                AND d.crop_path IS NOT NULL
+            ORDER BY d.frame_number ASC
+        """, (file_id,)).fetchall()
+
+        is_video = file['file_path'].lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))
+        output_dir = file['output_dir'].replace(str(DATA_DIR) + '/', '')
+        annotated_path = f"{output_dir}/annotated.mp4" if is_video else None
+
+    return render_template('file_detail.html',
+                         file=file,
+                         visits=visits,
+                         detections=all_detections,
+                         is_video=is_video,
+                         annotated_path=annotated_path)
 
 
 @app.route('/data/<path:filename>')
@@ -823,6 +909,7 @@ def generate_thumbnail(detection_id: int, size: int):
 def labeling():
     """Labeling interface for reviewing face annotations."""
     detection_id = request.args.get('id', type=int)
+    return_url = request.args.get('return_url', '')
 
     with db.get_connection() as conn:
         if detection_id:
@@ -868,7 +955,8 @@ def labeling():
     return render_template('labeling.html',
                           current_detection=current,
                           stats=stats,
-                          current_index=stats['reviewed'] if stats else 0)
+                          current_index=stats['reviewed'] if stats else 0,
+                          return_url=return_url)
 
 
 @app.route('/api/labeling/<int:detection_id>/confirm', methods=['POST'])

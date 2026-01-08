@@ -167,8 +167,8 @@
                             <p class="text-sm text-gray-500">Confidence: {{ "%.1f"|format(visit.species_confidence * 100) }}%</p>
                         </div>
                         <div class="flex items-center gap-3">
-                            {% if visit.best_detection_id %}
-                            <img src="/thumbnail/{{ visit.best_detection_id }}/80" alt="Detection" class="h-20 w-20 rounded object-cover">
+                            {% if visit.cover_detection_id %}
+                            <img src="/thumbnail/{{ visit.cover_detection_id }}/80" alt="Detection" class="h-20 w-20 rounded object-cover">
                             {% endif %}
                             <i class="bi bi-chevron-right text-gray-400"></i>
                         </div>
