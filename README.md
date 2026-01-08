@@ -146,6 +146,23 @@ Once running, access the web interface at http://127.0.0.1:5001
 - `/labeling/stats` - Labeling progress and statistics
 - `/settings` - Application settings
 
+### Merging Duplicate Files
+
+UniFi Protect occasionally creates multiple overlapping or duplicate motion detection events for the same bird activity due to a [known bug in the motion detection system](https://community.ui.com/questions/Multiple-overlapping-duplicating-motion-detections-bug/31034a73-1b6a-48e5-b935-ba582748f887). This can result in multiple files being processed for what is effectively the same bird visit.
+
+To handle this, Birdhomie provides a **merge** feature that allows you to consolidate duplicate files:
+
+1. Navigate to the file detail page of the duplicate file you want to merge
+2. In the "Merge with another file" section, select the target file from the dropdown list (sorted by most recent first)
+3. Click "Merge" to mark the duplicate file as ignored and soft-delete its visits
+4. The video file remains on disk for potential re-processing if needed
+
+**What happens when you merge:**
+- The source file is marked with status `ignored`
+- All visits from the source file are soft-deleted (marked with `deleted_at` timestamp)
+- The file reference and video remain on disk
+- You can undo the merge by clicking "Process this file anyway" on the ignored file's detail page
+
 ## UniFi Protect Integration
 
 ### Setup

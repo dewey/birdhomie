@@ -332,20 +332,40 @@ class FileProcessor:
             avg_species_conf = sum(d['species_confidence'] for d in species_detections) / len(species_detections)
 
             with db.get_connection() as conn:
-                # Create visit
-                cursor = conn.execute("""
-                    INSERT INTO visits
-                    (file_id, inaturalist_taxon_id, species_confidence,
-                     species_confidence_model, detection_count)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    file_id,
-                    taxon_id,
-                    avg_species_conf,
-                    BIOCLIP_MODEL_NAME,
-                    len(species_detections)
-                ))
-                visit_id = cursor.lastrowid
+                # Check if visit already exists for this file and species
+                existing_visit = conn.execute("""
+                    SELECT id FROM visits
+                    WHERE file_id = ? AND inaturalist_taxon_id = ?
+                """, (file_id, taxon_id)).fetchone()
+
+                if existing_visit:
+                    # Update existing visit
+                    visit_id = existing_visit['id']
+                    conn.execute("""
+                        UPDATE visits
+                        SET species_confidence = ?,
+                            species_confidence_model = ?,
+                            detection_count = ?
+                        WHERE id = ?
+                    """, (avg_species_conf, BIOCLIP_MODEL_NAME, len(species_detections), visit_id))
+
+                    # Delete old detections for this visit
+                    conn.execute("DELETE FROM detections WHERE visit_id = ?", (visit_id,))
+                else:
+                    # Create new visit
+                    cursor = conn.execute("""
+                        INSERT INTO visits
+                        (file_id, inaturalist_taxon_id, species_confidence,
+                         species_confidence_model, detection_count)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (
+                        file_id,
+                        taxon_id,
+                        avg_species_conf,
+                        BIOCLIP_MODEL_NAME,
+                        len(species_detections)
+                    ))
+                    visit_id = cursor.lastrowid
 
                 # Insert all detections for this visit
                 for det in species_detections:

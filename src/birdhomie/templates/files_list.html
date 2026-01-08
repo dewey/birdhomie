@@ -10,14 +10,17 @@
     <div class="bg-white shadow overflow-hidden sm:rounded-md">
         <ul class="divide-y divide-gray-200">
             {% for file in files %}
-            <li class="hover:bg-gray-50 transition-colors">
+            <li class="hover:bg-gray-50 transition-colors {% if file.status == 'ignored' %}opacity-60 bg-gray-50{% endif %}">
                 <a href="/files/{{ file.id }}" class="block px-4 py-4 sm:px-6">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <div class="flex items-center">
                                 <i class="bi bi-film text-gray-400 text-2xl mr-3"></i>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ file.file_path.split('/')[-1] }}</p>
+                                    <p class="text-sm font-medium text-gray-900">
+                                        <span class="inline-block bg-gray-100 text-gray-600 text-xs font-mono px-2 py-0.5 rounded mr-2">#{{ file.id }}</span>
+                                        {{ file.file_path.split('/')[-1] }}
+                                    </p>
                                     <p class="text-sm text-gray-500">{{ file.event_start|format_datetime('datetime') }}</p>
                                     {% if file.duration_seconds %}
                                     <p class="text-sm text-gray-500">Duration: {{ "%.1f"|format(file.duration_seconds) }}s</p>
@@ -25,8 +28,15 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="ml-4">
-                            {% if file.status == 'success' %}
+                        <div class="ml-4 flex flex-col items-end gap-1">
+                            {% if file.status == 'ignored' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
+                                <i class="bi bi-eye-slash mr-1"></i> Ignored (Merged)
+                            </span>
+                            {% if file.duplicate_of_file_id %}
+                            <span class="text-xs text-gray-500">→ File #{{ file.duplicate_of_file_id }}</span>
+                            {% endif %}
+                            {% elif file.status == 'success' %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 <i class="bi bi-check-circle mr-1"></i> Success
                             </span>

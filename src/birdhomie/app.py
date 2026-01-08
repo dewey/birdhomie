@@ -232,6 +232,7 @@ def dashboard():
             JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
             LEFT JOIN species_images si ON t.taxon_id = si.taxon_id AND si.is_default = 1
             WHERE f.event_start >= {date_filter}
+                AND v.deleted_at IS NULL
             GROUP BY t.taxon_id
             ORDER BY visit_count DESC
         """).fetchall()
@@ -246,6 +247,7 @@ def dashboard():
             JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
             LEFT JOIN detections d ON v.id = d.visit_id
             WHERE f.event_start >= {date_filter}
+                AND v.deleted_at IS NULL
         """).fetchone()
 
         most_active_hour_row = conn.execute(f"""
@@ -253,6 +255,7 @@ def dashboard():
             FROM visits v
             JOIN files f ON v.file_id = f.id
             WHERE f.event_start >= {date_filter}
+                AND v.deleted_at IS NULL
             GROUP BY hour
             ORDER BY COUNT(*) DESC
             LIMIT 1
@@ -263,6 +266,7 @@ def dashboard():
             FROM visits v
             JOIN files f ON v.file_id = f.id
             WHERE f.event_start >= {date_filter}
+                AND v.deleted_at IS NULL
             GROUP BY day_of_week
             ORDER BY COUNT(*) DESC
             LIMIT 1
@@ -292,6 +296,7 @@ def dashboard():
                 FROM visits v
                 JOIN files f ON v.file_id = f.id
                 WHERE f.event_start >= {date_filter}
+                    AND v.deleted_at IS NULL
             ),
             dates_with_prev AS (
                 SELECT
@@ -355,12 +360,13 @@ def hourly_activity():
     
     with db.get_connection() as conn:
         hourly_data = conn.execute(f"""
-            SELECT 
+            SELECT
                 CAST(strftime('%H', f.event_start) AS INTEGER) as hour,
                 COUNT(DISTINCT v.id) as visit_count
             FROM visits v
             JOIN files f ON v.file_id = f.id
             WHERE f.event_start >= {date_filter}
+                AND v.deleted_at IS NULL
             GROUP BY hour
             ORDER BY hour
         """).fetchall()
@@ -389,7 +395,7 @@ def species_list():
                 MAX(f.event_start) as last_seen,
                 si.local_path as image_path
             FROM inaturalist_taxa t
-            LEFT JOIN visits v ON t.taxon_id IN (v.inaturalist_taxon_id, v.override_taxon_id)
+            LEFT JOIN visits v ON t.taxon_id IN (v.inaturalist_taxon_id, v.override_taxon_id) AND v.deleted_at IS NULL
             LEFT JOIN files f ON v.file_id = f.id
             LEFT JOIN species_images si ON t.taxon_id = si.taxon_id AND si.is_default = 1
             GROUP BY t.taxon_id
@@ -419,7 +425,7 @@ def species_detail(taxon_id):
             LEFT JOIN species_images si ON t.taxon_id = si.taxon_id AND si.is_default = 1
             LEFT JOIN wikipedia_pages wp ON t.wikidata_qid = wp.wikidata_qid
                 AND wp.language_code = ?
-            LEFT JOIN visits v ON t.taxon_id IN (v.inaturalist_taxon_id, v.override_taxon_id)
+            LEFT JOIN visits v ON t.taxon_id IN (v.inaturalist_taxon_id, v.override_taxon_id) AND v.deleted_at IS NULL
             LEFT JOIN files f ON v.file_id = f.id
             WHERE t.taxon_id = ?
             GROUP BY t.taxon_id
@@ -441,6 +447,7 @@ def species_detail(taxon_id):
             JOIN files f ON v.file_id = f.id
             LEFT JOIN detections d ON d.id = v.cover_detection_id
             WHERE COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = ?
+                AND v.deleted_at IS NULL
             ORDER BY f.event_start DESC
             LIMIT 20
         """, (taxon_id,)).fetchall()
@@ -459,6 +466,7 @@ def species_detail(taxon_id):
             JOIN visits v ON d.visit_id = v.id
             JOIN files f ON v.file_id = f.id
             WHERE COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = ?
+                AND v.deleted_at IS NULL
                 AND d.id = v.cover_detection_id
                 AND d.crop_path IS NOT NULL
                 AND (d.annotation_source IS NULL OR d.annotation_source != 'no_face')
@@ -495,6 +503,11 @@ def visit_detail(visit_id):
 
         if not visit:
             return "Visit not found", 404
+
+        # Check if visit is soft-deleted
+        if visit['deleted_at'] is not None:
+            flash(_('This visit has been deleted'), 'warning')
+            return redirect(url_for('dashboard'))
 
         # Get all detections for this visit
         detections = conn.execute("""
@@ -629,7 +642,8 @@ def file_detail(file_id):
                 event_start,
                 duration_seconds,
                 output_dir,
-                status
+                status,
+                duplicate_of_file_id
             FROM files
             WHERE id = ?
         """, (file_id,)).fetchone()
@@ -648,6 +662,7 @@ def file_detail(file_id):
             FROM visits v
             JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
             WHERE v.file_id = ?
+                AND v.deleted_at IS NULL
             ORDER BY v.species_confidence DESC
         """, (file_id,)).fetchall()
 
@@ -665,8 +680,23 @@ def file_detail(file_id):
             FROM detections d
             JOIN visits v ON d.visit_id = v.id
             WHERE v.file_id = ?
+                AND v.deleted_at IS NULL
                 AND d.crop_path IS NOT NULL
             ORDER BY d.frame_number ASC
+        """, (file_id,)).fetchall()
+
+        # Get available files for merge dropdown (excluding current file)
+        available_files = conn.execute("""
+            SELECT
+                id,
+                file_path,
+                event_start,
+                duration_seconds,
+                status
+            FROM files
+            WHERE id != ?
+            ORDER BY event_start DESC
+            LIMIT 100
         """, (file_id,)).fetchall()
 
         is_video = file['file_path'].lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))
@@ -677,8 +707,74 @@ def file_detail(file_id):
                          file=file,
                          visits=visits,
                          detections=all_detections,
+                         available_files=available_files,
                          is_video=is_video,
                          annotated_path=annotated_path)
+
+
+@app.route('/files/<int:file_id>/unignore', methods=['POST'])
+def unignore_file(file_id):
+    """Remove ignored status from a file and mark it for processing."""
+    with db.get_connection() as conn:
+        conn.execute("""
+            UPDATE files
+            SET status = 'pending',
+                duplicate_of_file_id = NULL
+            WHERE id = ?
+        """, (file_id,))
+
+    return redirect(url_for('file_detail', file_id=file_id))
+
+
+@app.route('/files/<int:file_id>/merge', methods=['POST'])
+def merge_file(file_id):
+    """Merge a file into another file.
+
+    This marks the source file as ignored, soft-deletes its visits,
+    and keeps the file on disk for potential re-processing.
+    """
+    target_id = request.form.get('target_id', type=int)
+
+    if not target_id:
+        flash(_('Target file ID is required'), 'error')
+        return redirect(url_for('file_detail', file_id=file_id))
+
+    if target_id == file_id:
+        flash(_('Cannot merge a file into itself'), 'error')
+        return redirect(url_for('file_detail', file_id=file_id))
+
+    with db.get_connection() as conn:
+        # Verify both files exist
+        source = conn.execute("SELECT * FROM files WHERE id = ?", (file_id,)).fetchone()
+        target = conn.execute("SELECT * FROM files WHERE id = ?", (target_id,)).fetchone()
+
+        if not source or not target:
+            flash(_('One or both files not found'), 'error')
+            return redirect(url_for('files_list'))
+
+        # Mark source file as ignored
+        conn.execute("""
+            UPDATE files
+            SET status = 'ignored',
+                duplicate_of_file_id = ?
+            WHERE id = ?
+        """, (target_id, file_id))
+
+        # Soft delete all visits from the source file
+        conn.execute("""
+            UPDATE visits
+            SET deleted_at = CURRENT_TIMESTAMP
+            WHERE file_id = ? AND deleted_at IS NULL
+        """, (file_id,))
+
+        logger.info("file_merged", extra={
+            "source_file_id": file_id,
+            "target_file_id": target_id
+        })
+
+        flash(_('File merged successfully'), 'success')
+
+    return redirect(url_for('file_detail', file_id=target_id))
 
 
 @app.route('/data/<path:filename>')
@@ -924,6 +1020,7 @@ def labeling():
                 JOIN visits v ON d.visit_id = v.id
                 JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
                 WHERE d.id = ?
+                    AND v.deleted_at IS NULL
             """, (detection_id,)).fetchone()
         else:
             # Get next pending annotation
@@ -937,6 +1034,7 @@ def labeling():
                 JOIN visits v ON d.visit_id = v.id
                 JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
                 WHERE d.annotation_source = 'machine'
+                    AND v.deleted_at IS NULL
                 ORDER BY d.id ASC
                 LIMIT 1
             """).fetchone()
@@ -1056,6 +1154,7 @@ def labeling_stats():
             JOIN visits v ON d.visit_id = v.id
             JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
             WHERE d.annotation_source IS NOT NULL
+                AND v.deleted_at IS NULL
             GROUP BY t.taxon_id, t.scientific_name, species_name
             ORDER BY total DESC
         """).fetchall()
