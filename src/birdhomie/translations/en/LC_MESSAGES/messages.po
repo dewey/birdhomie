@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-01-07 23:17+0100\n"
+"POT-Creation-Date: 2026-01-08 22:45+0100\n"
 "PO-Revision-Date: 2026-01-07 13:51+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -18,317 +18,431 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
-#: app.py:271
+#: src/birdhomie/app.py:279
 msgid "Sunday"
 msgstr ""
 
-#: app.py:272
+#: src/birdhomie/app.py:280
 msgid "Monday"
 msgstr ""
 
-#: app.py:273
+#: src/birdhomie/app.py:281
 msgid "Tuesday"
 msgstr ""
 
-#: app.py:274
+#: src/birdhomie/app.py:282
 msgid "Wednesday"
 msgstr ""
 
-#: app.py:275
+#: src/birdhomie/app.py:283
 msgid "Thursday"
 msgstr ""
 
-#: app.py:276
+#: src/birdhomie/app.py:284
 msgid "Friday"
 msgstr ""
 
-#: app.py:277
+#: src/birdhomie/app.py:285
 msgid "Saturday"
 msgstr ""
 
-#: app.py:280 templates/dashboard.html:101
+#: src/birdhomie/app.py:288 src/birdhomie/templates/dashboard.html:101
 msgid "N/A"
 msgstr ""
 
-#: templates/base.html:51
+#: src/birdhomie/app.py:510
+msgid "This visit has been deleted"
+msgstr ""
+
+#: src/birdhomie/app.py:760
+msgid "Target file ID is required"
+msgstr ""
+
+#: src/birdhomie/app.py:764 src/birdhomie/templates/file_detail.html:106
+msgid "Cannot merge a file into itself"
+msgstr ""
+
+#: src/birdhomie/app.py:773
+msgid "One or both files not found"
+msgstr ""
+
+#: src/birdhomie/app.py:796
+msgid "File merged successfully"
+msgstr ""
+
+#: src/birdhomie/templates/base.html:51
 msgid "Home"
 msgstr ""
 
-#: templates/base.html:54 templates/labeling_stats.html:87
+#: src/birdhomie/templates/base.html:54
+#: src/birdhomie/templates/labeling_stats.html:87
 msgid "Species"
 msgstr ""
 
-#: templates/base.html:57
+#: src/birdhomie/templates/base.html:57
 msgid "Files"
 msgstr ""
 
-#: templates/base.html:60
+#: src/birdhomie/templates/base.html:60
 msgid "Tasks"
 msgstr ""
 
-#: templates/base.html:63
+#: src/birdhomie/templates/base.html:63
 msgid "Labeling"
 msgstr ""
 
-#: templates/base.html:66
+#: src/birdhomie/templates/base.html:66
 msgid "Settings"
 msgstr ""
 
-#: templates/dashboard.html:16
+#: src/birdhomie/templates/dashboard.html:16
 msgid "Today"
 msgstr ""
 
-#: templates/dashboard.html:19
+#: src/birdhomie/templates/dashboard.html:19
 msgid "This Week"
 msgstr ""
 
-#: templates/dashboard.html:22
+#: src/birdhomie/templates/dashboard.html:22
 msgid "This Month"
 msgstr ""
 
-#: templates/dashboard.html:41
+#: src/birdhomie/templates/dashboard.html:41
 msgid "visit"
 msgid_plural "visits"
 msgstr[0] ""
 msgstr[1] ""
 
-#: templates/dashboard.html:49
+#: src/birdhomie/templates/dashboard.html:49
 msgid "No birds detected yet"
 msgstr ""
 
-#: templates/dashboard.html:50
+#: src/birdhomie/templates/dashboard.html:50
 msgid "Process some video files to see detections here."
 msgstr ""
 
-#: templates/dashboard.html:55
+#: src/birdhomie/templates/dashboard.html:55
 msgid "Insights"
 msgstr ""
 
-#: templates/dashboard.html:67 templates/species_detail.html:23
+#: src/birdhomie/templates/dashboard.html:67
+#: src/birdhomie/templates/species_detail.html:23
 msgid "Total Visits"
 msgstr ""
 
-#: templates/dashboard.html:83
+#: src/birdhomie/templates/dashboard.html:83
 msgid "Unique Species"
 msgstr ""
 
-#: templates/dashboard.html:99
+#: src/birdhomie/templates/dashboard.html:99
 msgid "Most Active Hour"
 msgstr ""
 
-#: templates/dashboard.html:117
+#: src/birdhomie/templates/dashboard.html:117
 msgid "Most Popular Day"
 msgstr ""
 
-#: templates/dashboard.html:130
+#: src/birdhomie/templates/dashboard.html:130
 msgid "Activity by Hour of Day"
 msgstr ""
 
-#: templates/dashboard.html:158
-msgid "Visits"
-msgstr ""
-
-#: templates/dashboard.html:188
-msgid "Number of Visits"
-msgstr ""
-
-#: templates/dashboard.html:131
+#: src/birdhomie/templates/dashboard.html:138
 msgid "Longest Visiting Streaks"
 msgstr ""
 
-#: templates/dashboard.html:194
+#: src/birdhomie/templates/dashboard.html:167
+msgid "Visits"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:197
+msgid "Number of Visits"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:203
 msgid "Hour of Day"
 msgstr ""
 
-#: templates/dashboard.html:231
+#: src/birdhomie/templates/dashboard.html:231
 msgid "Days"
 msgstr ""
 
-#: templates/dashboard.html:270
+#: src/birdhomie/templates/dashboard.html:270
 msgid "consecutive days"
 msgstr ""
 
-#: templates/dashboard.html:283
+#: src/birdhomie/templates/dashboard.html:283
 msgid "Consecutive Days"
 msgstr ""
 
-#: templates/labeling.html:3 templates/labeling.html:123
+#: src/birdhomie/templates/file_detail.html:40
+msgid "This file was manually merged"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:42
+msgid "into"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:42
+msgid "file"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:44
+msgid "The video file is kept on disk but was not processed."
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:48
+msgid "Process this file anyway"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:85
+msgid "Merge with another file"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:86
+msgid ""
+"If this is a duplicate, merge it into another file. This will mark this "
+"file as ignored and soft-delete its visits."
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:91
+msgid "Select a file to merge into..."
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:99
+msgid "Merge"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:105
+msgid "Please select a target file"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:107
+msgid ""
+"Are you sure you want to merge file #{{current}} into {{target}}? This "
+"will mark file #{{current}} as ignored and soft-delete its visits. The "
+"file will remain on disk."
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:156
+#: src/birdhomie/templates/visit_detail.html:90
+msgid "Video is being processed"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:157
+#: src/birdhomie/templates/visit_detail.html:91
+msgid "The annotated video will be available once processing is complete."
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:166
+#: src/birdhomie/templates/visit_detail.html:100
+msgid "Video processing failed"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:167
+#: src/birdhomie/templates/visit_detail.html:101
+msgid "There was an error processing this video file."
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:176
+#: src/birdhomie/templates/visit_detail.html:110
+msgid "Video not available"
+msgstr ""
+
+#: src/birdhomie/templates/file_detail.html:177
+#: src/birdhomie/templates/visit_detail.html:111
+msgid "The annotated video file could not be found."
+msgstr ""
+
+#: src/birdhomie/templates/labeling.html:3
+#: src/birdhomie/templates/labeling.html:132
 msgid "Face Labeling"
 msgstr ""
 
-#: templates/labeling.html:128
+#: src/birdhomie/templates/labeling.html:137
 msgid "pending"
 msgstr ""
 
-#: templates/labeling.html:131
+#: src/birdhomie/templates/labeling.html:140
 msgid "reviewed"
 msgstr ""
 
-#: templates/labeling.html:134
+#: src/birdhomie/templates/labeling.html:143
 msgid "total"
 msgstr ""
 
-#: templates/labeling.html:158
+#: src/birdhomie/templates/labeling.html:167
 msgid "Detection ID"
 msgstr ""
 
-#: templates/labeling.html:162
+#: src/birdhomie/templates/labeling.html:171
 msgid "Confidence"
 msgstr ""
 
-#: templates/labeling.html:166
+#: src/birdhomie/templates/labeling.html:175
 msgid "Frame Time"
 msgstr ""
 
-#: templates/labeling.html:170
+#: src/birdhomie/templates/labeling.html:179
 msgid "Status"
 msgstr ""
 
-#: templates/labeling.html:182
+#: src/birdhomie/templates/labeling.html:191
 msgid "Review Actions"
 msgstr ""
 
-#: templates/labeling.html:185
+#: src/birdhomie/templates/labeling.html:194
 msgid "Tip"
 msgstr ""
 
-#: templates/labeling.html:190
+#: src/birdhomie/templates/labeling.html:199
 msgid "Confirm Annotation"
 msgstr ""
 
-#: templates/labeling.html:194
+#: src/birdhomie/templates/labeling.html:203
 msgid "No Visible Face"
 msgstr ""
 
-#: templates/labeling.html:200
+#: src/birdhomie/templates/labeling.html:209
 msgid "Keyboard Shortcuts"
 msgstr ""
 
-#: templates/labeling.html:202
+#: src/birdhomie/templates/labeling.html:211
 msgid "Confirm"
 msgstr ""
 
-#: templates/labeling.html:203
+#: src/birdhomie/templates/labeling.html:212
 msgid "No face"
 msgstr ""
 
-#: templates/labeling.html:210
+#: src/birdhomie/templates/labeling.html:219
 msgid "Detection"
 msgstr ""
 
-#: templates/labeling.html:222
+#: src/birdhomie/templates/labeling.html:231
 msgid "All caught up! No pending annotations."
 msgstr ""
 
-#: templates/labeling.html:226
+#: src/birdhomie/templates/labeling.html:235
 msgid "View Statistics"
 msgstr ""
 
-#: templates/labeling_stats.html:3 templates/labeling_stats.html:8
+#: src/birdhomie/templates/labeling_stats.html:3
+#: src/birdhomie/templates/labeling_stats.html:8
 msgid "Labeling Statistics"
 msgstr ""
 
-#: templates/labeling_stats.html:11
+#: src/birdhomie/templates/labeling_stats.html:11
 msgid "Continue Labeling"
 msgstr ""
 
-#: templates/labeling_stats.html:19
+#: src/birdhomie/templates/labeling_stats.html:19
 msgid "Total Detections"
 msgstr ""
 
-#: templates/labeling_stats.html:23
+#: src/birdhomie/templates/labeling_stats.html:23
 msgid "Reviewed by Human"
 msgstr ""
 
-#: templates/labeling_stats.html:30
+#: src/birdhomie/templates/labeling_stats.html:30
 msgid "Pending Review"
 msgstr ""
 
-#: templates/labeling_stats.html:37
+#: src/birdhomie/templates/labeling_stats.html:37
 msgid "Not Yet Annotated"
 msgstr ""
 
-#: templates/labeling_stats.html:43
+#: src/birdhomie/templates/labeling_stats.html:43
 msgid "Heuristic Accuracy"
 msgstr ""
 
-#: templates/labeling_stats.html:49
+#: src/birdhomie/templates/labeling_stats.html:49
 msgid "Confirmed Correct"
 msgstr ""
 
-#: templates/labeling_stats.html:55
+#: src/birdhomie/templates/labeling_stats.html:55
 msgid "Corrected by Human"
 msgstr ""
 
-#: templates/labeling_stats.html:61 templates/labeling_stats.html:99
+#: src/birdhomie/templates/labeling_stats.html:61
+#: src/birdhomie/templates/labeling_stats.html:99
 msgid "Confirmation Rate"
 msgstr ""
 
-#: templates/labeling_stats.html:63
+#: src/birdhomie/templates/labeling_stats.html:63
 msgid "Target"
 msgstr ""
 
-#: templates/labeling_stats.html:80
+#: src/birdhomie/templates/labeling_stats.html:80
 msgid "Per-Species Annotation Status"
 msgstr ""
 
-#: templates/labeling_stats.html:90
+#: src/birdhomie/templates/labeling_stats.html:90
 msgid "Total"
 msgstr ""
 
-#: templates/labeling_stats.html:93
+#: src/birdhomie/templates/labeling_stats.html:93
 msgid "Reviewed"
 msgstr ""
 
-#: templates/labeling_stats.html:96
+#: src/birdhomie/templates/labeling_stats.html:96
 msgid "Pending"
 msgstr ""
 
-#: templates/labeling_stats.html:102
+#: src/birdhomie/templates/labeling_stats.html:102
 msgid "Progress"
 msgstr ""
 
-#: templates/species_detail.html:27
+#: src/birdhomie/templates/species_detail.html:27
 msgid "First Seen"
 msgstr ""
 
-#: templates/species_detail.html:31
+#: src/birdhomie/templates/species_detail.html:31
 msgid "Last Seen"
 msgstr ""
 
-#: templates/species_detail.html:40
+#: src/birdhomie/templates/species_detail.html:40
 msgid "About"
 msgstr ""
 
-#: templates/species_detail.html:44
+#: src/birdhomie/templates/species_detail.html:44
 msgid "Read more on Wikipedia"
 msgstr ""
 
-#: templates/species_detail.html:55
+#: src/birdhomie/templates/species_detail.html:55
 msgid "Recent Photos"
 msgstr ""
 
-#: templates/species_detail.html:72
+#: src/birdhomie/templates/species_detail.html:72
+#: src/birdhomie/templates/species_detail.html:96
 msgid "Go to Visit"
 msgstr ""
 
-#: templates/species_detail.html:88
+#: src/birdhomie/templates/species_detail.html:88
 msgid "Full size detection"
 msgstr ""
 
-#: templates/species_detail.html:93
+#: src/birdhomie/templates/species_detail.html:93
+#: src/birdhomie/templates/species_detail.html:118
 msgid "Label face"
 msgstr ""
 
-#: templates/species_detail.html:113
+#: src/birdhomie/templates/species_detail.html:113
 msgid "Detection from"
 msgstr ""
 
-#: templates/species_detail.html:118
+#: src/birdhomie/templates/species_detail.html:118
 msgid "Re-label face"
 msgstr ""
 
-#: templates/species_detail.html:134
+#: src/birdhomie/templates/species_detail.html:155
 msgid "Recent Visits"
 msgstr ""
+
+#~ msgid ""
+#~ "Are you sure you want to merge "
+#~ "file #%current% into %target%? This will"
+#~ " mark file #%current% as ignored and"
+#~ " soft-delete its visits. The file "
+#~ "will remain on disk."
+#~ msgstr ""
 

@@ -494,7 +494,8 @@ def visit_detail(visit_id):
                 f.file_path,
                 f.output_dir,
                 f.event_start,
-                f.duration_seconds
+                f.duration_seconds,
+                f.status as file_status
             FROM visits v
             JOIN files f ON v.file_id = f.id
             JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
@@ -541,16 +542,25 @@ def visit_detail(visit_id):
         file_path = visit['file_path']
         is_video = file_path.lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))
 
-        # Generate annotated file path
-        output_dir = visit['output_dir'].replace('/Users/philippdefner/repos/github.com/dewey/birdhomie/data/', '')
-        annotated_path = f"{output_dir}/annotated.mp4" if is_video else None
+        # Check video availability
+        annotated_path = None
+        video_available = False
+        file_status = visit['file_status']
+
+        if is_video and file_status == 'success':
+            output_dir = visit['output_dir'].replace(str(DATA_DIR) + '/', '')
+            annotated_path = f"{output_dir}/annotated.mp4"
+            annotated_full_path = DATA_DIR / 'output' / str(visit['file_id']) / 'annotated.mp4'
+            video_available = annotated_full_path.exists()
 
     return render_template('visit_detail.html',
                          visit=visit,
                          detections=detections,
                          all_species=all_species,
                          is_video=is_video,
-                         annotated_path=annotated_path)
+                         annotated_path=annotated_path,
+                         video_available=video_available,
+                         file_status=file_status)
 
 
 @app.route('/visits/<int:visit_id>/correct', methods=['POST'])
@@ -700,8 +710,17 @@ def file_detail(file_id):
         """, (file_id,)).fetchall()
 
         is_video = file['file_path'].lower().endswith(('.mp4', '.avi', '.mov', '.mkv'))
-        output_dir = file['output_dir'].replace(str(DATA_DIR) + '/', '')
-        annotated_path = f"{output_dir}/annotated.mp4" if is_video else None
+
+        # Check video availability
+        annotated_path = None
+        video_available = False
+        file_status = file['status']
+
+        if is_video and file_status == 'success':
+            output_dir = file['output_dir'].replace(str(DATA_DIR) + '/', '')
+            annotated_path = f"{output_dir}/annotated.mp4"
+            annotated_full_path = DATA_DIR / 'output' / str(file_id) / 'annotated.mp4'
+            video_available = annotated_full_path.exists()
 
     return render_template('file_detail.html',
                          file=file,
@@ -709,7 +728,9 @@ def file_detail(file_id):
                          detections=all_detections,
                          available_files=available_files,
                          is_video=is_video,
-                         annotated_path=annotated_path)
+                         annotated_path=annotated_path,
+                         video_available=video_available,
+                         file_status=file_status)
 
 
 @app.route('/files/<int:file_id>/unignore', methods=['POST'])

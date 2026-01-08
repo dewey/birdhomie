@@ -1,18 +1,17 @@
-# German translations for PROJECT.
+# Translations template for PROJECT.
 # Copyright (C) 2026 ORGANIZATION
 # This file is distributed under the same license as the PROJECT project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
+#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-01-08 22:45+0100\n"
-"PO-Revision-Date: 2026-01-07 13:51+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language: de\n"
-"Language-Team: de <LL@li.org>\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -20,35 +19,35 @@ msgstr ""
 
 #: src/birdhomie/app.py:279
 msgid "Sunday"
-msgstr "Sonntag"
+msgstr ""
 
 #: src/birdhomie/app.py:280
 msgid "Monday"
-msgstr "Montag"
+msgstr ""
 
 #: src/birdhomie/app.py:281
 msgid "Tuesday"
-msgstr "Dienstag"
+msgstr ""
 
 #: src/birdhomie/app.py:282
 msgid "Wednesday"
-msgstr "Mittwoch"
+msgstr ""
 
 #: src/birdhomie/app.py:283
 msgid "Thursday"
-msgstr "Donnerstag"
+msgstr ""
 
 #: src/birdhomie/app.py:284
 msgid "Friday"
-msgstr "Freitag"
+msgstr ""
 
 #: src/birdhomie/app.py:285
 msgid "Saturday"
-msgstr "Samstag"
+msgstr ""
 
 #: src/birdhomie/app.py:288 src/birdhomie/templates/dashboard.html:101
 msgid "N/A"
-msgstr "N/V"
+msgstr ""
 
 #: src/birdhomie/app.py:510
 msgid "This visit has been deleted"
@@ -56,170 +55,165 @@ msgstr ""
 
 #: src/birdhomie/app.py:760
 msgid "Target file ID is required"
-msgstr "Zieldatei-ID ist erforderlich"
+msgstr ""
 
 #: src/birdhomie/app.py:764 src/birdhomie/templates/file_detail.html:106
 msgid "Cannot merge a file into itself"
-msgstr "Eine Datei kann nicht mit sich selbst zusammengeführt werden"
+msgstr ""
 
 #: src/birdhomie/app.py:773
 msgid "One or both files not found"
-msgstr "Eine oder beide Dateien nicht gefunden"
+msgstr ""
 
 #: src/birdhomie/app.py:796
 msgid "File merged successfully"
-msgstr "Datei erfolgreich zusammengeführt"
+msgstr ""
 
 #: src/birdhomie/templates/base.html:51
 msgid "Home"
-msgstr "Startseite"
+msgstr ""
 
 #: src/birdhomie/templates/base.html:54
 #: src/birdhomie/templates/labeling_stats.html:87
 msgid "Species"
-msgstr "Arten"
+msgstr ""
 
 #: src/birdhomie/templates/base.html:57
 msgid "Files"
-msgstr "Dateien"
+msgstr ""
 
 #: src/birdhomie/templates/base.html:60
 msgid "Tasks"
-msgstr "Aufgaben"
+msgstr ""
 
 #: src/birdhomie/templates/base.html:63
 msgid "Labeling"
-msgstr "Beschriftung"
+msgstr ""
 
 #: src/birdhomie/templates/base.html:66
 msgid "Settings"
-msgstr "Einstellungen"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:16
 msgid "Today"
-msgstr "Heute"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:19
 msgid "This Week"
-msgstr "Diese Woche"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:22
 msgid "This Month"
-msgstr "Diesen Monat"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:41
 msgid "visit"
 msgid_plural "visits"
-msgstr[0] "Besuch"
-msgstr[1] "Besuche"
+msgstr[0] ""
+msgstr[1] ""
 
 #: src/birdhomie/templates/dashboard.html:49
 msgid "No birds detected yet"
-msgstr "Noch keine Vögel erkannt"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:50
 msgid "Process some video files to see detections here."
-msgstr "Verarbeiten Sie einige Videodateien, um hier Erkennungen zu sehen."
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:55
 msgid "Insights"
-msgstr "Einblicke"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:67
 #: src/birdhomie/templates/species_detail.html:23
 msgid "Total Visits"
-msgstr "Besuche insgesamt"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:83
 msgid "Unique Species"
-msgstr "Einzigartige Arten"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:99
 msgid "Most Active Hour"
-msgstr "Aktivste Stunde"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:117
 msgid "Most Popular Day"
-msgstr "Beliebtester Tag"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:130
 msgid "Activity by Hour of Day"
-msgstr "Aktivität nach Tageszeit"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:138
 msgid "Longest Visiting Streaks"
-msgstr "Längste Besuchsserien"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:167
 msgid "Visits"
-msgstr "Besuche"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:197
 msgid "Number of Visits"
-msgstr "Anzahl der Besuche"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:203
 msgid "Hour of Day"
-msgstr "Tageszeit"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:231
 msgid "Days"
-msgstr "Tage"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:270
 msgid "consecutive days"
-msgstr "aufeinanderfolgende Tage"
+msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:283
 msgid "Consecutive Days"
-msgstr "Aufeinanderfolgende Tage"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:40
 msgid "This file was manually merged"
-msgstr "Diese Datei wurde manuell zusammengeführt"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:42
 msgid "into"
-msgstr "in"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:42
 msgid "file"
-msgstr "Datei"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:44
 msgid "The video file is kept on disk but was not processed."
 msgstr ""
-"Die Videodatei wird auf der Festplatte behalten, wurde aber nicht "
-"verarbeitet."
 
 #: src/birdhomie/templates/file_detail.html:48
 msgid "Process this file anyway"
-msgstr "Diese Datei trotzdem verarbeiten"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:85
 msgid "Merge with another file"
-msgstr "Mit einer anderen Datei zusammenführen"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:86
 msgid ""
 "If this is a duplicate, merge it into another file. This will mark this "
 "file as ignored and soft-delete its visits."
 msgstr ""
-"Wenn dies ein Duplikat ist, führen Sie es mit einer anderen Datei "
-"zusammen. Dies markiert diese Datei als ignoriert und löscht ihre Besuche"
-" soft."
 
 #: src/birdhomie/templates/file_detail.html:91
 msgid "Select a file to merge into..."
-msgstr "Wählen Sie eine Zieldatei aus..."
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:99
 msgid "Merge"
-msgstr "Zusammenführen"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:105
 msgid "Please select a target file"
-msgstr "Bitte wählen Sie eine Zieldatei aus"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:107
 msgid ""
@@ -227,41 +221,36 @@ msgid ""
 "will mark file #{{current}} as ignored and soft-delete its visits. The "
 "file will remain on disk."
 msgstr ""
-"Möchten Sie die Datei #{{current}} wirklich in {{target}} zusammenführen? "
-"Dies markiert Datei #{{current}} als ignoriert und löscht ihre Besuche "
-"soft. Die Datei bleibt auf der Festplatte erhalten."
 
 #: src/birdhomie/templates/file_detail.html:156
 #: src/birdhomie/templates/visit_detail.html:90
 msgid "Video is being processed"
-msgstr "Video wird verarbeitet"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:157
 #: src/birdhomie/templates/visit_detail.html:91
 msgid "The annotated video will be available once processing is complete."
 msgstr ""
-"Das annotierte Video wird verfügbar sein, sobald die Verarbeitung "
-"abgeschlossen ist."
 
 #: src/birdhomie/templates/file_detail.html:166
 #: src/birdhomie/templates/visit_detail.html:100
 msgid "Video processing failed"
-msgstr "Videoverarbeitung fehlgeschlagen"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:167
 #: src/birdhomie/templates/visit_detail.html:101
 msgid "There was an error processing this video file."
-msgstr "Bei der Verarbeitung dieser Videodatei ist ein Fehler aufgetreten."
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:176
 #: src/birdhomie/templates/visit_detail.html:110
 msgid "Video not available"
-msgstr "Video nicht verfügbar"
+msgstr ""
 
 #: src/birdhomie/templates/file_detail.html:177
 #: src/birdhomie/templates/visit_detail.html:111
 msgid "The annotated video file could not be found."
-msgstr "Die annotierte Videodatei konnte nicht gefunden werden."
+msgstr ""
 
 #: src/birdhomie/templates/labeling.html:3
 #: src/birdhomie/templates/labeling.html:132
@@ -277,9 +266,8 @@ msgid "reviewed"
 msgstr ""
 
 #: src/birdhomie/templates/labeling.html:143
-#, fuzzy
 msgid "total"
-msgstr "Heute"
+msgstr ""
 
 #: src/birdhomie/templates/labeling.html:167
 msgid "Detection ID"
@@ -388,9 +376,8 @@ msgid "Per-Species Annotation Status"
 msgstr ""
 
 #: src/birdhomie/templates/labeling_stats.html:90
-#, fuzzy
 msgid "Total"
-msgstr "Heute"
+msgstr ""
 
 #: src/birdhomie/templates/labeling_stats.html:93
 msgid "Reviewed"
@@ -406,47 +393,47 @@ msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:27
 msgid "First Seen"
-msgstr "Erstmals gesehen"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:31
 msgid "Last Seen"
-msgstr "Zuletzt gesehen"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:40
 msgid "About"
-msgstr "Über"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:44
 msgid "Read more on Wikipedia"
-msgstr "Mehr auf Wikipedia lesen"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:55
 msgid "Recent Photos"
-msgstr "Aktuelle Fotos"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:72
 #: src/birdhomie/templates/species_detail.html:96
 msgid "Go to Visit"
-msgstr "Zum Besuch"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:88
 msgid "Full size detection"
-msgstr "Erkennung in voller Größe"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:93
 #: src/birdhomie/templates/species_detail.html:118
 msgid "Label face"
-msgstr "Gesicht beschriften"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:113
 msgid "Detection from"
-msgstr "Erkennung vom"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:118
 msgid "Re-label face"
-msgstr "Gesicht neu beschriften"
+msgstr ""
 
 #: src/birdhomie/templates/species_detail.html:155
 msgid "Recent Visits"
-msgstr "Letzte Besuche"
+msgstr ""
 

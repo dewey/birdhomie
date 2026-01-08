@@ -37,15 +37,15 @@
             </div>
             <div class="ml-3">
                 <p class="text-sm text-blue-700">
-                    This file was manually merged
+                    {{ _('This file was manually merged') }}
                     {% if file.duplicate_of_file_id %}
-                    into <a href="/files/{{ file.duplicate_of_file_id }}" class="font-medium underline hover:text-blue-600">file #{{ file.duplicate_of_file_id }}</a>
+                    {{ _('into') }} <a href="/files/{{ file.duplicate_of_file_id }}" class="font-medium underline hover:text-blue-600">{{ _('file') }} #{{ file.duplicate_of_file_id }}</a>
                     {% endif %}.
-                    The video file is kept on disk but was not processed.
+                    {{ _('The video file is kept on disk but was not processed.') }}
                 </p>
                 <form method="POST" action="/files/{{ file.id }}/unignore" class="mt-2">
                     <button type="submit" class="text-sm font-medium text-blue-700 hover:text-blue-600 underline">
-                        Process this file anyway
+                        {{ _('Process this file anyway') }}
                     </button>
                 </form>
             </div>
@@ -82,13 +82,13 @@
             <!-- Merge File Action -->
             {% if file.status != 'ignored' %}
             <div class="mt-6 pt-6 border-t border-gray-200">
-                <h3 class="text-sm font-medium text-gray-700 mb-2">Merge with another file</h3>
-                <p class="text-xs text-gray-500 mb-3">If this is a duplicate, merge it into another file. This will mark this file as ignored and soft-delete its visits.</p>
+                <h3 class="text-sm font-medium text-gray-700 mb-2">{{ _('Merge with another file') }}</h3>
+                <p class="text-xs text-gray-500 mb-3">{{ _('If this is a duplicate, merge it into another file. This will mark this file as ignored and soft-delete its visits.') }}</p>
                 <form method="POST" action="/files/{{ file.id }}/merge" class="flex gap-2" onsubmit="return confirmMerge(event)">
                     <select name="target_id"
                            class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
                            required>
-                        <option value="">Select a file to merge into...</option>
+                        <option value="">{{ _('Select a file to merge into...') }}</option>
                         {% for available_file in available_files %}
                         <option value="{{ available_file.id }}">
                             #{{ available_file.id }} - {{ available_file.file_path.split('/')[-1] }} ({{ available_file.event_start|format_datetime('datetime') }})
@@ -96,30 +96,40 @@
                         {% endfor %}
                     </select>
                     <button type="submit" class="px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-                        <i class="bi bi-arrow-left-right mr-1"></i>Merge
+                        <i class="bi bi-arrow-left-right mr-1"></i>{{ _('Merge') }}
                     </button>
                 </form>
             </div>
             <script>
+            const i18n_merge = {
+                selectFile: '{{ _('Please select a target file') }}',
+                cannotMergeSelf: '{{ _('Cannot merge a file into itself') }}',
+                confirmTemplate: '{{ _('Are you sure you want to merge file #{{current}} into {{target}}? This will mark file #{{current}} as ignored and soft-delete its visits. The file will remain on disk.') }}'
+            };
+
             function confirmMerge(event) {
                 const form = event.target;
                 const targetId = form.elements['target_id'].value;
                 const currentId = {{ file.id }};
 
                 if (!targetId) {
-                    alert('Please select a target file');
+                    alert(i18n_merge.selectFile);
                     return false;
                 }
 
                 if (targetId == currentId) {
-                    alert('Cannot merge a file into itself');
+                    alert(i18n_merge.cannotMergeSelf);
                     return false;
                 }
 
                 const selectedOption = form.elements['target_id'].options[form.elements['target_id'].selectedIndex];
                 const targetFileName = selectedOption.text;
 
-                return confirm(`Are you sure you want to merge file #${currentId} into ${targetFileName}? This will mark file #${currentId} as ignored and soft-delete its visits. The file will remain on disk.`);
+                const message = i18n_merge.confirmTemplate
+                    .replace(/\{\{current\}\}/g, currentId)
+                    .replace(/\{\{target\}\}/g, targetFileName);
+
+                return confirm(message);
             }
             </script>
             {% endif %}
@@ -127,16 +137,48 @@
     </div>
 
     <!-- Annotated Video Player -->
-    {% if is_video and annotated_path %}
+    {% if is_video %}
     <div class="mb-6">
         <h2 class="text-xl font-semibold text-gray-900 mb-3">
             <i class="bi bi-play-circle"></i> Annotated Video
         </h2>
         <div class="bg-white shadow overflow-hidden sm:rounded-lg p-4">
+            {% if video_available %}
             <video controls class="w-full max-w-4xl rounded-lg shadow-lg">
                 <source src="/data/{{ annotated_path }}" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
+            {% elif file_status == 'processing' %}
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="bi bi-hourglass-split text-blue-600 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-blue-900 font-medium">{{ _('Video is being processed') }}</p>
+                        <p class="text-blue-700 text-sm">{{ _('The annotated video will be available once processing is complete.') }}</p>
+                    </div>
+                </div>
+            </div>
+            {% elif file_status == 'failed' %}
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="bi bi-exclamation-triangle text-red-600 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-red-900 font-medium">{{ _('Video processing failed') }}</p>
+                        <p class="text-red-700 text-sm">{{ _('There was an error processing this video file.') }}</p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="bi bi-exclamation-circle text-yellow-600 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-yellow-900 font-medium">{{ _('Video not available') }}</p>
+                        <p class="text-yellow-700 text-sm">{{ _('The annotated video file could not be found.') }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endif %}
