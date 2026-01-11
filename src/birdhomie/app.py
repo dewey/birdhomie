@@ -1369,7 +1369,7 @@ def main():
 
     # Start the Flask app
     try:
-        app.run(host="0.0.0.0", port=5001, debug=config.flask_debug)
+        app.run(host="0.0.0.0", port=config.port, debug=config.flask_debug)
     finally:
         # Ensure scheduler shuts down cleanly
         if scheduler.running:

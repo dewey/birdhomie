@@ -11,6 +11,7 @@ class Config:
     # Flask
     flask_debug: bool
     secret_key: str
+    port: int
 
     # UniFi Protect
     ufp_address: str
@@ -70,6 +71,7 @@ class Config:
         return cls(
             flask_debug=os.getenv("FLASK_DEBUG", "0") == "1",
             secret_key=os.getenv("SECRET_KEY", "dev-secret-key"),
+            port=int(os.getenv("PORT", "5000")),
             ufp_address=required["UFP_ADDRESS"],
             ufp_username=required["UFP_USERNAME"],
             ufp_password=required["UFP_PASSWORD"],
