@@ -1,11 +1,13 @@
 """Background task scheduler."""
 
 import logging
+import shutil
 import signal
 import sys
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from .config import Config
+from .constants import OUTPUT_DIR
 from .utils import task_lock
 from .processor import process_files_sync
 from .unifi import download_unifi_events_sync
@@ -191,6 +193,66 @@ def cleanup_stale_tasks():
             logger.info("stale_tasks_cleaned_up", extra={"count": len(stale_tasks)})
 
 
+def cleanup_stale_files():
+    """Reset any files stuck in 'processing' state back to 'pending' on startup.
+
+    This handles cases where the application was restarted while files were being processed.
+    Since no process can still be working on these files after a restart, they should be
+    reprocessed rather than left orphaned.
+
+    Also cleans up partial output artifacts (directories, crops, videos) and any
+    database records (visits, detections) that were created during the interrupted run.
+    """
+    with db.get_connection() as conn:
+        # Find all files stuck in processing state
+        stale_files = conn.execute("""
+            SELECT id, file_path FROM files
+            WHERE status = 'processing'
+        """).fetchall()
+
+        if stale_files:
+            for f in stale_files:
+                file_id = f["id"]
+
+                # Clean up partial output directory if it exists
+                output_dir = OUTPUT_DIR / str(file_id)
+                if output_dir.exists():
+                    try:
+                        shutil.rmtree(output_dir)
+                        logger.info(
+                            "cleaned_up_partial_output",
+                            extra={"file_id": file_id, "output_dir": str(output_dir)},
+                        )
+                    except OSError as e:
+                        logger.warning(
+                            "failed_to_cleanup_output",
+                            extra={"file_id": file_id, "error": str(e)},
+                        )
+
+                # Delete any partial visits/detections (cascade will handle detections)
+                conn.execute("DELETE FROM visits WHERE file_id = ?", (file_id,))
+
+                logger.warning(
+                    "reset_stale_file",
+                    extra={
+                        "file_id": file_id,
+                        "file_path": f["file_path"],
+                    },
+                )
+
+            # Reset files to pending so they get reprocessed
+            conn.execute("""
+                UPDATE files
+                SET status = 'pending',
+                    output_dir = NULL,
+                    error_message = 'Processing interrupted by application restart - will retry'
+                WHERE status = 'processing'
+            """)
+            conn.commit()
+
+            logger.info("stale_files_reset", extra={"count": len(stale_files)})
+
+
 def start_scheduler(config: Config) -> BackgroundScheduler:
     """Start the background task scheduler.
 
@@ -200,8 +262,9 @@ def start_scheduler(config: Config) -> BackgroundScheduler:
     Returns:
         Running scheduler instance
     """
-    # Clean up any stale tasks from previous runs
+    # Clean up any stale tasks and files from previous runs
     cleanup_stale_tasks()
+    cleanup_stale_files()
 
     executors = {"default": ThreadPoolExecutor(max_workers=2)}
 
