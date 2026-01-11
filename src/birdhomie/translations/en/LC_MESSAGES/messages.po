@@ -118,7 +118,15 @@ msgid "No birds detected yet"
 msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:50
-msgid "Process some video files to see detections here."
+msgid "Go to the"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:50
+msgid "Tasks page"
+msgstr ""
+
+#: src/birdhomie/templates/dashboard.html:50
+msgid "to import videos from UniFi Protect."
 msgstr ""
 
 #: src/birdhomie/templates/dashboard.html:55
