@@ -34,10 +34,31 @@ jobs:
       - name: Run ruff format check
         run: uv run ruff format --check src/
 
+  changes:
+    name: Check Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.filter.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            build:
+              - 'src/**'
+              - 'migrations/**'
+              - 'Dockerfile'
+              - 'Dockerfile.base'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci.yml'
+
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: lint
+    needs: [lint, changes]
+    if: needs.changes.outputs.should_build == 'true'
     permissions:
       contents: read
       packages: write
