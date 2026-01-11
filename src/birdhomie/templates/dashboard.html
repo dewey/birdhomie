@@ -30,7 +30,7 @@
         <a href="/species/{{ sp.taxon_id }}" class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow">
             <div class="p-5">
                 {% if sp.image_path %}
-                <img src="/data/{{ sp.image_path.replace('/Users/philippdefner/repos/github.com/dewey/birdhomie/data/', '') }}" alt="{{ sp.name }}" class="w-full h-48 object-cover rounded-md mb-4">
+                <img src="/data/{{ sp.image_path|data_path }}" alt="{{ sp.name }}" class="w-full h-48 object-cover rounded-md mb-4">
                 {% else %}
                 <div class="w-full h-48 bg-gray-200 rounded-md mb-4 flex items-center justify-center">
                     <i class="bi bi-image text-gray-400 text-4xl"></i>

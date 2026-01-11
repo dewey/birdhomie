@@ -9,7 +9,7 @@
         <div class="px-4 py-5 sm:p-6">
             <div class="flex items-start">
                 {% if species.image_path %}
-                <img src="/data/{{ species.image_path.replace('/Users/philippdefner/repos/github.com/dewey/birdhomie/data/', '') }}" alt="{{ species.scientific_name }}" class="h-48 w-48 rounded-lg object-cover mr-6">
+                <img src="/data/{{ species.image_path|data_path }}" alt="{{ species.scientific_name }}" class="h-48 w-48 rounded-lg object-cover mr-6">
                 {% else %}
                 <div class="h-48 w-48 bg-gray-200 rounded-lg mr-6 flex items-center justify-center">
                     <i class="bi bi-image text-gray-400 text-6xl"></i>

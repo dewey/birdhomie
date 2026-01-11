@@ -221,6 +221,28 @@ def format_time_ago_filter(dt):
     )
 
 
+@app.template_filter("data_path")
+def data_path_filter(path):
+    """
+    Convert an image path to a URL-safe relative path for /data/ route.
+
+    Handles both:
+    - Old absolute paths: /app/data/species_images/123_1.jpg or /Users/.../data/species_images/123_1.jpg
+    - New relative paths: species_images/123_1.jpg
+    """
+    if not path:
+        return ""
+
+    path = str(path)
+
+    # Handle absolute paths - extract everything after 'data/'
+    if "/data/" in path:
+        path = path.split("/data/", 1)[-1]
+
+    # Remove any leading slashes
+    return path.lstrip("/")
+
+
 @app.before_request
 def before_request():
     """Set up request context."""

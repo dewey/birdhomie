@@ -167,7 +167,7 @@ def fetch_species_from_api(scientific_name: str) -> Optional[Dict]:
         raise
 
 
-def download_species_image(image_url: str, taxon_id: int) -> Optional[Path]:
+def download_species_image(image_url: str, taxon_id: int) -> Optional[str]:
     """Download species image to local storage.
 
     Args:
@@ -175,7 +175,7 @@ def download_species_image(image_url: str, taxon_id: int) -> Optional[Path]:
         taxon_id: iNaturalist taxon ID
 
     Returns:
-        Path to downloaded image or None on failure
+        Relative path to downloaded image (from DATA_DIR), or None on failure
     """
     if not image_url:
         return None
@@ -184,10 +184,11 @@ def download_species_image(image_url: str, taxon_id: int) -> Optional[Path]:
 
     # Use taxon_id_1.jpg as filename (allows for multiple images per species)
     local_path = SPECIES_IMAGES_DIR / f"{taxon_id}_1.jpg"
+    relative_path = f"species_images/{taxon_id}_1.jpg"
 
     if local_path.exists():
-        logger.debug("species_image_exists", extra={"path": str(local_path)})
-        return local_path
+        logger.debug("species_image_exists", extra={"path": relative_path})
+        return relative_path
 
     try:
         logger.info(
@@ -201,10 +202,10 @@ def download_species_image(image_url: str, taxon_id: int) -> Optional[Path]:
 
         logger.info(
             "species_image_downloaded",
-            extra={"taxon_id": taxon_id, "path": str(local_path)},
+            extra={"taxon_id": taxon_id, "path": relative_path},
         )
 
-        return local_path
+        return relative_path
 
     except requests.RequestException as e:
         logger.error(
