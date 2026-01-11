@@ -30,9 +30,10 @@ data/
 # Development files
 .envrc
 .envrc.example
-*.md
 Makefile
 .claude/
+CHANGELOG.md
+CONTRIBUTING.md
 
 # Test files
 test_*.py

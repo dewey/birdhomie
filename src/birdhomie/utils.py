@@ -95,6 +95,7 @@ class CircuitBreaker:
 def task_lock(task_type: str):
     """Prevent concurrent execution of same task using database status check."""
     from . import database as db
+    from . import metrics as m
 
     with db.get_connection() as conn:
         # Check if task is already running
@@ -123,9 +124,15 @@ def task_lock(task_type: str):
 
         logger.info("task_started", extra={"task": task_type, "task_id": task_id})
 
+    start_time = time.time()
     try:
         yield task_id
     except Exception as e:
+        # Record metrics for failed job
+        duration = time.time() - start_time
+        m.JOB_DURATION.labels(job_type=task_type, status="failed").observe(duration)
+        m.JOB_RUNS_TOTAL.labels(job_type=task_type, status="failed").inc()
+
         # Mark as failed on exception
         with db.get_connection() as conn:
             conn.execute(
@@ -142,6 +149,11 @@ def task_lock(task_type: str):
             conn.commit()
         raise
     else:
+        # Record metrics for successful job
+        duration = time.time() - start_time
+        m.JOB_DURATION.labels(job_type=task_type, status="success").observe(duration)
+        m.JOB_RUNS_TOTAL.labels(job_type=task_type, status="success").inc()
+
         # Mark as success
         with db.get_connection() as conn:
             conn.execute(

@@ -5,21 +5,23 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,id=apt-builder,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies with CPU-only PyTorch
-ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
+ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --no-install-project
 
 # Copy source code and install project
 COPY src/ ./src/
 COPY migrations/ ./migrations/
+COPY README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
 
@@ -27,14 +29,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.12-slim-bookworm AS runtime
 
 # Install runtime dependencies for OpenCV and video processing
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,id=apt-runtime,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+        libglib2.0-0 \
+        ffmpeg \
+        && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

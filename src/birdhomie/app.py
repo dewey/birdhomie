@@ -15,6 +15,7 @@ from flask import (
     flash,
     jsonify,
     send_file,
+    Response,
 )
 from flask_babel import Babel, _
 from markupsafe import Markup
@@ -968,6 +969,16 @@ def tasks_api():
         """).fetchall()
 
     return jsonify([dict(task) for task in tasks])
+
+
+@app.route("/metrics")
+def prometheus_metrics():
+    """Prometheus metrics endpoint for scraping."""
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    from . import metrics as m
+
+    m.update_gauges()
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
 @app.route("/tasks/trigger/<task_type>", methods=["POST"])
