@@ -1,19 +1,13 @@
 # syntax=docker/dockerfile:1
 
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 
 WORKDIR /app
-
-# Install build dependencies
-RUN --mount=type=cache,target=/var/cache/apt,id=apt-builder,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies with CPU-only PyTorch
+# Install dependencies (all packages have pre-built wheels, no build-essential needed)
 ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --no-install-project
@@ -26,7 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
 
 
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.13-slim-bookworm AS runtime
 
 # Install runtime dependencies for OpenCV and video processing
 RUN --mount=type=cache,target=/var/cache/apt,id=apt-runtime,sharing=locked \
