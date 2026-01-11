@@ -6,6 +6,9 @@
 -- Migration 006 used table recreation because it needed to modify the CHECK constraint,
 -- but for dropping columns, DROP COLUMN is cleaner and simpler.
 
+-- Drop index on duplicate_checked_at before dropping the column
+DROP INDEX IF EXISTS idx_files_duplicate_checked;
+
 ALTER TABLE files DROP COLUMN overlap_percentage;
 ALTER TABLE files DROP COLUMN duplicate_checked_at;
 ALTER TABLE files DROP COLUMN frame_hashes_blob;

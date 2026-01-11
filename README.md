@@ -54,17 +54,19 @@ cp .envrc.example .envrc
 - `UFP_CAMERA_ID`: Camera ID to monitor (find in Protect web UI)
 
 **Optional variables:**
-- `FLASK_DEBUG`: Enable Flask debug mode (default: `0`)
-- `SECRET_KEY`: Flask secret key (default: `dev-secret-key`)
 - `UFP_DETECTION_TYPES`: Detection types to monitor (default: `motion`)
 - `UFP_SSL_VERIFY`: Verify SSL certificates for UniFi Protect (default: `false`)
-- `UFP_DOWNLOAD_INTERVAL_MINUTES`: Download interval in minutes (default: `30`)
-- `PROCESSOR_INTERVAL_MINUTES`: Processing interval in minutes (default: `5`)
-- `MIN_SPECIES_CONFIDENCE`: Minimum confidence for species ID (default: `0.85`)
-- `MIN_DETECTION_CONFIDENCE`: Minimum confidence for bird detection (default: `0.80`)
-- `FRAME_SKIP`: Process every N frames (default: `5`)
+- `UFP_DOWNLOAD_INTERVAL_MINUTES`: How often to check for new events in minutes (default: `60`)
+- `PROCESSOR_INTERVAL_MINUTES`: How often to process files in minutes (default: `5`)
+- `MIN_SPECIES_CONFIDENCE`: Minimum confidence for species ID, 0.0-1.0 (default: `0.85`)
+- `MIN_DETECTION_CONFIDENCE`: Minimum confidence for bird detection, 0.0-1.0 (default: `0.80`)
+- `FRAME_SKIP`: Process every Nth frame from videos (default: `5`)
 - `FILE_RETENTION_DAYS`: Days to retain processed files (default: `30`)
-- `FACE_ANNOTATION_BATCH_SIZE`: Batch size for face annotation (default: `100`)
+
+**Development variables** (only change if developing/debugging):
+- `FLASK_DEBUG`: Enable Flask debug mode with hot reloading (default: `0`)
+- `SECRET_KEY`: Flask secret key for sessions (default: `dev-secret-key`)
+- `FACE_ANNOTATION_BATCH_SIZE`: Batch size for face annotation processing (default: `100`)
 
 **Using direnv (recommended):**
 If you have direnv installed, allow it to load the environment:

@@ -4,9 +4,9 @@
 run: compile-translations
 	uv run birdhomie
 
-# Run with hot reloading (development mode)
+# Run with hot reloading (development mode, verbose YOLO output)
 dev: compile-translations
-	FLASK_DEBUG=1 uv run flask --app src.birdhomie.app run --host 0.0.0.0 --port 5001 --reload
+	FLASK_DEBUG=1 YOLO_VERBOSE=true uv run flask --app src.birdhomie.app run --host 0.0.0.0 --port 5001 --reload
 
 # Compile .po files to .mo files
 compile-translations:

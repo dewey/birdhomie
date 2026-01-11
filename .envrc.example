@@ -1,28 +1,68 @@
-# Flask debug settings
-export FLASK_DEBUG=1
-export SECRET_KEY=dev-secret-key
+# Birdhomie Configuration
+# See README.md "Configure Environment Variables" section for detailed documentation.
 
-# UniFi Protect NVR settings
+# =============================================================================
+# UniFi Protect NVR Settings (Required)
+# =============================================================================
+# You MUST configure these settings to connect to your UniFi Protect NVR.
+
+# IP address of your UniFi Protect NVR
 export UFP_ADDRESS=192.168.1.1
+
+# Local Access Only user credentials (create in Protect web UI)
 export UFP_USERNAME=your-username
 export UFP_PASSWORD=your-password
+
+# Camera ID to monitor (find in Protect: Settings > Camera > Advanced)
 export UFP_CAMERA_ID=your-camera-id
+
+# =============================================================================
+# Optional Settings
+# =============================================================================
+# These have sensible defaults but can be adjusted to your preferences.
+
+# Detection types to monitor, comma-separated (default: motion)
+# Options: motion, person, vehicle, animal, package, etc.
 export UFP_DETECTION_TYPES=motion
+
+# Verify SSL certificates for UniFi Protect connection (default: false)
+# Set to true if your NVR has a valid SSL certificate
 export UFP_SSL_VERIFY=false
 
-# Task intervals (in minutes)
+# How often to check UniFi Protect for new events, in minutes (default: 60)
 export UFP_DOWNLOAD_INTERVAL_MINUTES=60
+
+# How often to process downloaded files for bird detection, in minutes (default: 5)
 export PROCESSOR_INTERVAL_MINUTES=5
 
-# Detection confidence thresholds (0.0-1.0)
+# Minimum confidence for species identification (0.0-1.0, default: 0.85)
+# Higher values = fewer but more accurate species identifications
 export MIN_SPECIES_CONFIDENCE=0.85
+
+# Minimum confidence for bird detection (0.0-1.0, default: 0.80)
+# Higher values = fewer but more accurate bird detections
 export MIN_DETECTION_CONFIDENCE=0.80
 
-# Video processing
+# Process every Nth frame from videos (default: 5)
+# Higher values = faster processing but may miss quick movements
 export FRAME_SKIP=5
 
-# Data retention
+# Days to retain processed video files (default: 30)
+# Files older than this are cleaned up automatically
 export FILE_RETENTION_DAYS=30
 
-# Face annotation processing
+# =============================================================================
+# Development Settings
+# =============================================================================
+# Only change these if you are developing or debugging the application.
+
+# Enable Flask debug mode with hot reloading (default: 0)
+export FLASK_DEBUG=1
+
+# Flask secret key for session security (default: dev-secret-key)
+# Change this to a random string if deploying publicly
+export SECRET_KEY=dev-secret-key
+
+# Number of detections to process per batch for face annotation (default: 100)
+# Lower values = less memory usage, higher values = faster processing
 export FACE_ANNOTATION_BATCH_SIZE=100
