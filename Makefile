@@ -1,4 +1,4 @@
-.PHONY: run dev compile-translations extract-translations update-translations init-db migrate process clean help
+.PHONY: run dev compile-translations extract-translations update-translations init-db migrate process clean help build-base-image
 
 # Compile translations and start the app
 run: compile-translations
@@ -38,6 +38,13 @@ clean:
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
 
+# Build and push base image (amd64)
+build-base-image:
+	docker buildx build --platform linux/amd64 \
+		-f Dockerfile.base \
+		-t ghcr.io/dewey/birdhomie-base:latest \
+		--push .
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -50,3 +57,4 @@ help:
 	@echo "  migrate               - Run pending migrations"
 	@echo "  process               - Run file processor manually"
 	@echo "  clean                 - Clean generated files"
+	@echo "  build-base-image      - Build and push base image (amd64)"
