@@ -3,6 +3,7 @@
 import logging
 import hashlib
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Dict
 import cv2
@@ -533,16 +534,33 @@ class FileProcessor:
                 ORDER BY created_at
             """).fetchall()
 
-        count = 0
+        # Filter to existing files
+        file_paths = []
         for row in pending_files:
             file_path = Path(row["file_path"])
             if file_path.exists():
-                if self.process_file(file_path):
-                    count += 1
+                file_paths.append(file_path)
             else:
                 logger.warning("file_not_found", extra={"file": str(file_path)})
 
-        return count
+        if not file_paths:
+            return 0
+
+        workers = self.config.processor_workers
+        if workers > 1:
+            logger.info(
+                "processing_files_parallel",
+                extra={"count": len(file_paths), "workers": workers},
+            )
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                results = list(executor.map(self.process_file, file_paths))
+            return sum(results)
+        else:
+            count = 0
+            for file_path in file_paths:
+                if self.process_file(file_path):
+                    count += 1
+            return count
 
 
 def process_files_sync(config: Config) -> int:

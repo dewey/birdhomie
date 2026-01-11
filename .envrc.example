@@ -35,6 +35,11 @@ export UFP_DOWNLOAD_INTERVAL_MINUTES=60
 # How often to process downloaded files for bird detection, in minutes (default: 5)
 export PROCESSOR_INTERVAL_MINUTES=5
 
+# Number of video files to process in parallel (default: 1)
+# Higher values speed up processing but use more memory and CPU.
+# Recommended: Start with 2 and monitor resource usage before increasing.
+export PROCESSOR_WORKERS=1
+
 # Minimum confidence for species identification (0.0-1.0, default: 0.85)
 # Higher values = fewer but more accurate species identifications
 export MIN_SPECIES_CONFIDENCE=0.85

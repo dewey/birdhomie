@@ -58,6 +58,7 @@ cp .envrc.example .envrc
 - `UFP_SSL_VERIFY`: Verify SSL certificates for UniFi Protect (default: `false`)
 - `UFP_DOWNLOAD_INTERVAL_MINUTES`: How often to check for new events in minutes (default: `60`)
 - `PROCESSOR_INTERVAL_MINUTES`: How often to process files in minutes (default: `5`)
+- `PROCESSOR_WORKERS`: Number of video files to process in parallel (default: `1`)
 - `MIN_SPECIES_CONFIDENCE`: Minimum confidence for species ID, 0.0-1.0 (default: `0.85`)
 - `MIN_DETECTION_CONFIDENCE`: Minimum confidence for bird detection, 0.0-1.0 (default: `0.80`)
 - `FRAME_SKIP`: Process every Nth frame from videos (default: `5`)

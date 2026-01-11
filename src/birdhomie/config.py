@@ -34,6 +34,7 @@ class Config:
 
     # Video processing
     frame_skip: int
+    processor_workers: int
 
     # Data retention
     file_retention_days: int
@@ -88,6 +89,7 @@ class Config:
             min_species_confidence=min_species,
             min_detection_confidence=min_detection,
             frame_skip=int(os.getenv("FRAME_SKIP", "5")),
+            processor_workers=int(os.getenv("PROCESSOR_WORKERS", "1")),
             file_retention_days=int(os.getenv("FILE_RETENTION_DAYS", "30")),
             face_annotation_batch_size=int(
                 os.getenv("FACE_ANNOTATION_BATCH_SIZE", "100")
