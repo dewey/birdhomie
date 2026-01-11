@@ -1,0 +1,36 @@
+services:
+  birdhomie:
+    image: ghcr.io/dewey/birdhomie:latest
+    # Alternatively, build locally:
+    # build: .
+    container_name: birdhomie
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - birdhomie-data:/app/data
+    environment:
+      # Required: UniFi Protect NVR settings
+      - UFP_ADDRESS=192.168.1.1
+      - UFP_USERNAME=your-username
+      - UFP_PASSWORD=your-password
+      - UFP_CAMERA_ID=your-camera-id
+
+      # Optional: Detection settings
+      - UFP_DETECTION_TYPES=motion
+      - UFP_SSL_VERIFY=false
+      - UFP_DOWNLOAD_INTERVAL_MINUTES=60
+      - PROCESSOR_INTERVAL_MINUTES=5
+
+      # Optional: Confidence thresholds
+      - MIN_SPECIES_CONFIDENCE=0.85
+      - MIN_DETECTION_CONFIDENCE=0.80
+      - FRAME_SKIP=5
+      - FILE_RETENTION_DAYS=30
+
+      # Optional: Flask settings
+      - FLASK_DEBUG=0
+      - SECRET_KEY=change-me-to-a-random-string
+
+volumes:
+  birdhomie-data:

@@ -51,7 +51,9 @@ class Config:
 
         missing = [k for k, v in required.items() if not v]
         if missing:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing)}"
+            )
 
         # Validate thresholds
         min_species = float(os.getenv("MIN_SPECIES_CONFIDENCE", "0.85"))
@@ -71,11 +73,17 @@ class Config:
             ufp_camera_id=required["UFP_CAMERA_ID"],
             ufp_detection_types=os.getenv("UFP_DETECTION_TYPES", "motion"),
             ufp_ssl_verify=os.getenv("UFP_SSL_VERIFY", "false").lower() == "true",
-            ufp_download_interval_minutes=int(os.getenv("UFP_DOWNLOAD_INTERVAL_MINUTES", "60")),
-            processor_interval_minutes=int(os.getenv("PROCESSOR_INTERVAL_MINUTES", "5")),
+            ufp_download_interval_minutes=int(
+                os.getenv("UFP_DOWNLOAD_INTERVAL_MINUTES", "60")
+            ),
+            processor_interval_minutes=int(
+                os.getenv("PROCESSOR_INTERVAL_MINUTES", "5")
+            ),
             min_species_confidence=min_species,
             min_detection_confidence=min_detection,
             frame_skip=int(os.getenv("FRAME_SKIP", "5")),
             file_retention_days=int(os.getenv("FILE_RETENTION_DAYS", "30")),
-            face_annotation_batch_size=int(os.getenv("FACE_ANNOTATION_BATCH_SIZE", "100")),
+            face_annotation_batch_size=int(
+                os.getenv("FACE_ANNOTATION_BATCH_SIZE", "100")
+            ),
         )

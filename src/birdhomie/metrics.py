@@ -8,6 +8,7 @@ from . import database as db
 @dataclass
 class Metrics:
     """Application metrics."""
+
     files_processed_total: int = 0
     detections_total: int = 0
     visits_total: int = 0
@@ -32,10 +33,10 @@ def get_metrics() -> Metrics:
         """).fetchone()
 
         return Metrics(
-            files_processed_total=stats['files_processed'],
-            detections_total=stats['detections'],
-            visits_total=stats['visits'],
-            processing_errors_total=stats['errors'],
-            avg_processing_time_seconds=stats['avg_time'] or 0.0,
-            last_updated=datetime.now()
+            files_processed_total=stats["files_processed"],
+            detections_total=stats["detections"],
+            visits_total=stats["visits"],
+            processing_errors_total=stats["errors"],
+            avg_processing_time_seconds=stats["avg_time"] or 0.0,
+            last_updated=datetime.now(),
         )

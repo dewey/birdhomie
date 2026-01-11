@@ -30,7 +30,8 @@ def parse_inaturalist_url(url: str) -> Optional[int]:
     Example: https://www.inaturalist.org/taxa/13094 -> 13094
     """
     import re
-    match = re.search(r'/taxa/(\d+)', url)
+
+    match = re.search(r"/taxa/(\d+)", url)
     if match:
         return int(match.group(1))
     return None
@@ -46,8 +47,7 @@ def fetch_species_by_taxon_id(taxon_id: int) -> Optional[Dict]:
 
     try:
         response = requests.get(
-            f"{INATURALIST_API_BASE}/taxa/{taxon_id}",
-            timeout=REQUEST_TIMEOUT
+            f"{INATURALIST_API_BASE}/taxa/{taxon_id}", timeout=REQUEST_TIMEOUT
         )
         response.raise_for_status()
         data = response.json()
@@ -65,7 +65,7 @@ def fetch_species_by_taxon_id(taxon_id: int) -> Optional[Dict]:
             "common_name_de": None,
             "wikipedia_url": taxon.get("wikipedia_url"),
             "image_url": None,
-            "image_attribution": None
+            "image_attribution": None,
         }
 
         # Get English common name
@@ -83,7 +83,7 @@ def fetch_species_by_taxon_id(taxon_id: int) -> Optional[Dict]:
         de_response = requests.get(
             f"{INATURALIST_API_BASE}/taxa/{taxon_id}",
             params={"locale": "de"},
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
         if de_response.ok:
             de_data = de_response.json()
@@ -94,10 +94,9 @@ def fetch_species_by_taxon_id(taxon_id: int) -> Optional[Dict]:
         return result
 
     except requests.RequestException as e:
-        logger.error("inaturalist_api_error", extra={
-            "taxon_id": taxon_id,
-            "error": str(e)
-        })
+        logger.error(
+            "inaturalist_api_error", extra={"taxon_id": taxon_id, "error": str(e)}
+        )
         raise
 
 
@@ -115,7 +114,7 @@ def fetch_species_from_api(scientific_name: str) -> Optional[Dict]:
         response = requests.get(
             f"{INATURALIST_API_BASE}/taxa",
             params={"q": normalized, "rank": "species", "per_page": 1},
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         data = response.json()
@@ -133,7 +132,7 @@ def fetch_species_from_api(scientific_name: str) -> Optional[Dict]:
             "common_name_de": None,
             "wikipedia_url": taxon.get("wikipedia_url"),
             "image_url": None,
-            "image_attribution": None
+            "image_attribution": None,
         }
 
         # Get English common name
@@ -151,7 +150,7 @@ def fetch_species_from_api(scientific_name: str) -> Optional[Dict]:
         de_response = requests.get(
             f"{INATURALIST_API_BASE}/taxa",
             params={"q": normalized, "rank": "species", "per_page": 1, "locale": "de"},
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
         if de_response.ok:
             de_data = de_response.json()
@@ -162,10 +161,9 @@ def fetch_species_from_api(scientific_name: str) -> Optional[Dict]:
         return result
 
     except requests.RequestException as e:
-        logger.error("inaturalist_api_error", extra={
-            "species": normalized,
-            "error": str(e)
-        })
+        logger.error(
+            "inaturalist_api_error", extra={"species": normalized, "error": str(e)}
+        )
         raise
 
 
@@ -192,29 +190,27 @@ def download_species_image(image_url: str, taxon_id: int) -> Optional[Path]:
         return local_path
 
     try:
-        logger.info("downloading_species_image", extra={
-            "taxon_id": taxon_id,
-            "url": image_url
-        })
+        logger.info(
+            "downloading_species_image", extra={"taxon_id": taxon_id, "url": image_url}
+        )
 
         response = requests.get(image_url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
 
         local_path.write_bytes(response.content)
 
-        logger.info("species_image_downloaded", extra={
-            "taxon_id": taxon_id,
-            "path": str(local_path)
-        })
+        logger.info(
+            "species_image_downloaded",
+            extra={"taxon_id": taxon_id, "path": str(local_path)},
+        )
 
         return local_path
 
     except requests.RequestException as e:
-        logger.error("image_download_failed", extra={
-            "taxon_id": taxon_id,
-            "url": image_url,
-            "error": str(e)
-        })
+        logger.error(
+            "image_download_failed",
+            extra={"taxon_id": taxon_id, "url": image_url, "error": str(e)},
+        )
         return None
 
 
@@ -231,13 +227,16 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
 
     # Check if already in database
     with db.get_connection() as conn:
-        existing = conn.execute("""
+        existing = conn.execute(
+            """
             SELECT taxon_id FROM inaturalist_taxa
             WHERE scientific_name = ?
-        """, (normalized,)).fetchone()
+        """,
+            (normalized,),
+        ).fetchone()
 
         if existing:
-            return existing['taxon_id']
+            return existing["taxon_id"]
 
     # Fetch from API
     time.sleep(RATE_LIMIT_DELAY)
@@ -248,11 +247,12 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
         if not api_data:
             return None
 
-        taxon_id = api_data['taxon_id']
+        taxon_id = api_data["taxon_id"]
 
         # Insert into database
         with db.get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO inaturalist_taxa
                 (taxon_id, scientific_name, common_name_en, common_name_de,
                  wikipedia_url, fetched_at)
@@ -262,45 +262,53 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
                     common_name_de = excluded.common_name_de,
                     wikipedia_url = excluded.wikipedia_url,
                     fetched_at = CURRENT_TIMESTAMP
-            """, (
-                taxon_id,
-                api_data['scientific_name'],
-                api_data['common_name_en'],
-                api_data['common_name_de'],
-                api_data['wikipedia_url']
-            ))
+            """,
+                (
+                    taxon_id,
+                    api_data["scientific_name"],
+                    api_data["common_name_en"],
+                    api_data["common_name_de"],
+                    api_data["wikipedia_url"],
+                ),
+            )
 
         # Download image if available
-        if api_data['image_url']:
-            local_path = download_species_image(api_data['image_url'], taxon_id)
+        if api_data["image_url"]:
+            local_path = download_species_image(api_data["image_url"], taxon_id)
 
             if local_path:
                 with db.get_connection() as conn:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT INTO species_images
                         (taxon_id, original_url, local_path, attribution,
                          is_default, fetched_at)
                         VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
                         ON CONFLICT DO NOTHING
-                    """, (
-                        taxon_id,
-                        api_data['image_url'],
-                        str(local_path),
-                        api_data['image_attribution']
-                    ))
+                    """,
+                        (
+                            taxon_id,
+                            api_data["image_url"],
+                            str(local_path),
+                            api_data["image_attribution"],
+                        ),
+                    )
 
-        logger.info("taxon_created", extra={
-            "taxon_id": taxon_id,
-            "scientific_name": api_data['scientific_name']
-        })
+        logger.info(
+            "taxon_created",
+            extra={
+                "taxon_id": taxon_id,
+                "scientific_name": api_data["scientific_name"],
+            },
+        )
 
         return taxon_id
 
     except Exception as e:
-        logger.error("taxon_creation_failed", extra={
-            "scientific_name": scientific_name,
-            "error": str(e)
-        })
+        logger.error(
+            "taxon_creation_failed",
+            extra={"scientific_name": scientific_name, "error": str(e)},
+        )
         return None
 
 
@@ -315,13 +323,16 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
     """
     # Check if already in database
     with db.get_connection() as conn:
-        existing = conn.execute("""
+        existing = conn.execute(
+            """
             SELECT taxon_id FROM inaturalist_taxa
             WHERE taxon_id = ?
-        """, (taxon_id,)).fetchone()
+        """,
+            (taxon_id,),
+        ).fetchone()
 
         if existing:
-            return existing['taxon_id']
+            return existing["taxon_id"]
 
     # Fetch from API
     time.sleep(RATE_LIMIT_DELAY)
@@ -334,7 +345,8 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
 
         # Insert into database
         with db.get_connection() as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO inaturalist_taxa
                 (taxon_id, scientific_name, common_name_en, common_name_de,
                  wikipedia_url, fetched_at)
@@ -345,43 +357,50 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
                     common_name_de = excluded.common_name_de,
                     wikipedia_url = excluded.wikipedia_url,
                     fetched_at = CURRENT_TIMESTAMP
-            """, (
-                taxon_id,
-                api_data['scientific_name'],
-                api_data['common_name_en'],
-                api_data['common_name_de'],
-                api_data['wikipedia_url']
-            ))
+            """,
+                (
+                    taxon_id,
+                    api_data["scientific_name"],
+                    api_data["common_name_en"],
+                    api_data["common_name_de"],
+                    api_data["wikipedia_url"],
+                ),
+            )
 
         # Download image if available
-        if api_data['image_url']:
-            local_path = download_species_image(api_data['image_url'], taxon_id)
+        if api_data["image_url"]:
+            local_path = download_species_image(api_data["image_url"], taxon_id)
 
             if local_path:
                 with db.get_connection() as conn:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT INTO species_images
                         (taxon_id, original_url, local_path, attribution,
                          is_default, fetched_at)
                         VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
                         ON CONFLICT DO NOTHING
-                    """, (
-                        taxon_id,
-                        api_data['image_url'],
-                        str(local_path),
-                        api_data['image_attribution']
-                    ))
+                    """,
+                        (
+                            taxon_id,
+                            api_data["image_url"],
+                            str(local_path),
+                            api_data["image_attribution"],
+                        ),
+                    )
 
-        logger.info("taxon_created_by_id", extra={
-            "taxon_id": taxon_id,
-            "scientific_name": api_data['scientific_name']
-        })
+        logger.info(
+            "taxon_created_by_id",
+            extra={
+                "taxon_id": taxon_id,
+                "scientific_name": api_data["scientific_name"],
+            },
+        )
 
         return taxon_id
 
     except Exception as e:
-        logger.error("taxon_creation_by_id_failed", extra={
-            "taxon_id": taxon_id,
-            "error": str(e)
-        })
+        logger.error(
+            "taxon_creation_by_id_failed", extra={"taxon_id": taxon_id, "error": str(e)}
+        )
         return None

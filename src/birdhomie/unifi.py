@@ -4,7 +4,6 @@ import asyncio
 import hashlib
 import logging
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Optional
 from uiprotect import ProtectApiClient
 from uiprotect.data import Event, EventType
@@ -38,9 +37,9 @@ class UnifiProtectDownloader:
                 verify_ssl=self.config.ufp_ssl_verify,
             )
             await self._client.update()
-            logger.info("unifi_client_connected", extra={
-                "address": self.config.ufp_address
-            })
+            logger.info(
+                "unifi_client_connected", extra={"address": self.config.ufp_address}
+            )
         return self._client
 
     async def close(self):
@@ -67,10 +66,10 @@ class UnifiProtectDownloader:
         start_time = datetime.now() - timedelta(hours=hours)
         end_time = datetime.now()
 
-        logger.info("fetching_unifi_events", extra={
-            "start": start_time.isoformat(),
-            "end": end_time.isoformat()
-        })
+        logger.info(
+            "fetching_unifi_events",
+            extra={"start": start_time.isoformat(), "end": end_time.isoformat()},
+        )
 
         # Determine event types to fetch
         event_types = []
@@ -88,14 +87,13 @@ class UnifiProtectDownloader:
 
         # Filter by camera ID
         filtered_events = [
-            e for e in events
-            if e.camera_id == self.config.ufp_camera_id
+            e for e in events if e.camera_id == self.config.ufp_camera_id
         ]
 
-        logger.info("unifi_events_found", extra={
-            "total": len(events),
-            "filtered": len(filtered_events)
-        })
+        logger.info(
+            "unifi_events_found",
+            extra={"total": len(events), "filtered": len(filtered_events)},
+        )
 
         downloaded = 0
         for event in filtered_events:
@@ -103,10 +101,11 @@ class UnifiProtectDownloader:
                 if await self._download_event(client, event):
                     downloaded += 1
             except Exception as e:
-                logger.error("event_download_failed", extra={
-                    "event_id": event.id,
-                    "error": str(e)
-                }, exc_info=True)
+                logger.error(
+                    "event_download_failed",
+                    extra={"event_id": event.id, "error": str(e)},
+                    exc_info=True,
+                )
 
         return downloaded
 
@@ -125,10 +124,13 @@ class UnifiProtectDownloader:
 
         # Check if already exists in database
         with db.get_connection() as conn:
-            existing = conn.execute("""
+            existing = conn.execute(
+                """
                 SELECT id FROM files
                 WHERE source_event_id = ?
-            """, (event.id,)).fetchone()
+            """,
+                (event.id,),
+            ).fetchone()
 
             if existing:
                 logger.debug("event_already_in_database", extra={"event_id": event.id})
@@ -140,13 +142,15 @@ class UnifiProtectDownloader:
 
         # Check if file already exists on disk
         if output_path.exists():
-            logger.debug("event_file_already_exists", extra={"video_filename": filename})
+            logger.debug(
+                "event_file_already_exists", extra={"video_filename": filename}
+            )
             return False
 
-        logger.info("downloading_event", extra={
-            "event_id": event.id,
-            "video_filename": filename
-        })
+        logger.info(
+            "downloading_event",
+            extra={"event_id": event.id, "video_filename": filename},
+        )
 
         INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -166,35 +170,45 @@ class UnifiProtectDownloader:
 
             # Insert into database
             with db.get_connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT INTO files
                     (file_path, file_hash, source_event_id, event_start, event_end,
                      duration_seconds, status)
                     VALUES (?, ?, ?, ?, ?, ?, 'pending')
                     ON CONFLICT(file_path) DO NOTHING
-                """, (
-                    str(output_path),
-                    file_hash,
-                    event.id,
-                    event_start,
-                    event_end,
-                    duration
-                ))
+                """,
+                    (
+                        str(output_path),
+                        file_hash,
+                        event.id,
+                        event_start,
+                        event_end,
+                        duration,
+                    ),
+                )
 
-            logger.info("event_downloaded", extra={
-                "video_filename": filename,
-                "size_bytes": len(video_data),
-                "duration": duration
-            })
+            logger.info(
+                "event_downloaded",
+                extra={
+                    "video_filename": filename,
+                    "size_bytes": len(video_data),
+                    "duration": duration,
+                },
+            )
 
             return True
 
         except Exception as e:
-            logger.error("video_download_failed", extra={
-                "event_id": event.id,
-                "error": str(e),
-                "error_type": type(e).__name__
-            }, exc_info=True)
+            logger.error(
+                "video_download_failed",
+                extra={
+                    "event_id": event.id,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                exc_info=True,
+            )
             return False
 
 

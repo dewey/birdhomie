@@ -57,30 +57,34 @@ def annotate_detection(conn, detection_id: int) -> bool:
     Returns:
         True if annotated successfully, False if skipped/failed
     """
-    detection = conn.execute("""
+    detection = conn.execute(
+        """
         SELECT id, bbox_x1, bbox_y1, bbox_x2, bbox_y2, annotation_source
         FROM detections
         WHERE id = ?
-    """, (detection_id,)).fetchone()
+    """,
+        (detection_id,),
+    ).fetchone()
 
     if not detection:
         logger.warning(f"Detection {detection_id} not found")
         return False
 
-    if detection['annotation_source'] is not None:
+    if detection["annotation_source"] is not None:
         logger.debug(f"Detection {detection_id} already annotated")
         return False
 
     # Calculate face bbox
     face_x1, face_y1, face_x2, face_y2 = calculate_face_bbox(
-        detection['bbox_x1'],
-        detection['bbox_y1'],
-        detection['bbox_x2'],
-        detection['bbox_y2']
+        detection["bbox_x1"],
+        detection["bbox_y1"],
+        detection["bbox_x2"],
+        detection["bbox_y2"],
     )
 
     # Update detection with annotation
-    conn.execute("""
+    conn.execute(
+        """
         UPDATE detections
         SET face_bbox_x1 = ?,
             face_bbox_y1 = ?,
@@ -89,7 +93,9 @@ def annotate_detection(conn, detection_id: int) -> bool:
             annotation_source = 'machine',
             annotated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-    """, (face_x1, face_y1, face_x2, face_y2, detection_id))
+    """,
+        (face_x1, face_y1, face_x2, face_y2, detection_id),
+    )
 
     logger.info(f"Annotated detection {detection_id}")
     return True
@@ -111,13 +117,16 @@ def annotate_batch(batch_size: int) -> int:
 
     with db.get_connection() as conn:
         # Find unannotated detections
-        unannotated = conn.execute("""
+        unannotated = conn.execute(
+            """
             SELECT id
             FROM detections
             WHERE annotation_source IS NULL
             ORDER BY id ASC
             LIMIT ?
-        """, (batch_size,)).fetchall()
+        """,
+            (batch_size,),
+        ).fetchall()
 
         if not unannotated:
             logger.debug("No unannotated detections found")
@@ -127,7 +136,7 @@ def annotate_batch(batch_size: int) -> int:
 
         annotated_count = 0
         for row in unannotated:
-            if annotate_detection(conn, row['id']):
+            if annotate_detection(conn, row["id"]):
                 annotated_count += 1
 
         conn.commit()

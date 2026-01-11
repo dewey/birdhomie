@@ -12,7 +12,9 @@ _MODELS_DIR = _PROJECT_ROOT / "data" / "models"
 
 # HuggingFace Hub cache (for BioCLIP and other HF models)
 os.environ.setdefault("HF_HOME", str(_MODELS_DIR / "huggingface"))
-os.environ.setdefault("TRANSFORMERS_CACHE", str(_MODELS_DIR / "huggingface" / "transformers"))
+os.environ.setdefault(
+    "TRANSFORMERS_CACHE", str(_MODELS_DIR / "huggingface" / "transformers")
+)
 os.environ.setdefault("HF_HUB_CACHE", str(_MODELS_DIR / "huggingface" / "hub"))
 
 # PyTorch Hub cache (for other torch models)

@@ -13,36 +13,36 @@ logger = logging.getLogger(__name__)
 
 # European bird species likely to appear at a German bird feeder
 DEFAULT_SPECIES_LIST = [
-    "Erithacus rubecula",      # European Robin (Rotkehlchen)
-    "Parus major",             # Great Tit (Kohlmeise)
-    "Cyanistes caeruleus",     # Blue Tit (Blaumeise)
-    "Passer domesticus",       # House Sparrow (Haussperling)
-    "Turdus merula",           # Common Blackbird (Amsel)
-    "Fringilla coelebs",       # Common Chaffinch (Buchfink)
-    "Carduelis carduelis",     # European Goldfinch (Stieglitz)
-    "Sitta europaea",          # Eurasian Nuthatch (Kleiber)
-    "Pyrrhula pyrrhula",       # Eurasian Bullfinch (Gimpel)
-    "Chloris chloris",         # European Greenfinch (Grünfink)
-    "Aegithalos caudatus",     # Long-tailed Tit (Schwanzmeise)
-    "Dendrocopos major",       # Great Spotted Woodpecker (Buntspecht)
-    "Garrulus glandarius",     # Eurasian Jay (Eichelhäher)
-    "Pica pica",               # Eurasian Magpie (Elster)
-    "Corvus corone",           # Carrion Crow (Rabenkrähe)
-    "Sturnus vulgaris",        # Common Starling (Star)
-    "Columba palumbus",        # Common Wood Pigeon (Ringeltaube)
-    "Streptopelia decaocto",   # Eurasian Collared Dove (Türkentaube)
-    "Prunella modularis",      # Dunnock (Heckenbraunelle)
-    "Emberiza citrinella",     # Yellowhammer (Goldammer)
-    "Spinus spinus",           # Eurasian Siskin (Erlenzeisig)
+    "Erithacus rubecula",  # European Robin (Rotkehlchen)
+    "Parus major",  # Great Tit (Kohlmeise)
+    "Cyanistes caeruleus",  # Blue Tit (Blaumeise)
+    "Passer domesticus",  # House Sparrow (Haussperling)
+    "Turdus merula",  # Common Blackbird (Amsel)
+    "Fringilla coelebs",  # Common Chaffinch (Buchfink)
+    "Carduelis carduelis",  # European Goldfinch (Stieglitz)
+    "Sitta europaea",  # Eurasian Nuthatch (Kleiber)
+    "Pyrrhula pyrrhula",  # Eurasian Bullfinch (Gimpel)
+    "Chloris chloris",  # European Greenfinch (Grünfink)
+    "Aegithalos caudatus",  # Long-tailed Tit (Schwanzmeise)
+    "Dendrocopos major",  # Great Spotted Woodpecker (Buntspecht)
+    "Garrulus glandarius",  # Eurasian Jay (Eichelhäher)
+    "Pica pica",  # Eurasian Magpie (Elster)
+    "Corvus corone",  # Carrion Crow (Rabenkrähe)
+    "Sturnus vulgaris",  # Common Starling (Star)
+    "Columba palumbus",  # Common Wood Pigeon (Ringeltaube)
+    "Streptopelia decaocto",  # Eurasian Collared Dove (Türkentaube)
+    "Prunella modularis",  # Dunnock (Heckenbraunelle)
+    "Emberiza citrinella",  # Yellowhammer (Goldammer)
+    "Spinus spinus",  # Eurasian Siskin (Erlenzeisig)
     "Coccothraustes coccothraustes",  # Hawfinch (Kernbeißer)
-    "Periparus ater",          # Coal Tit (Tannenmeise)
-    "Poecile palustris",       # Marsh Tit (Sumpfmeise)
-    "Lophophanes cristatus",   # European Crested Tit (Haubenmeise)
-    "Certhia brachydactyla",   # Short-toed Treecreeper (Gartenbaumläufer)
-    "Regulus regulus",         # Goldcrest (Wintergoldhähnchen)
-    "Troglodytes troglodytes", # Eurasian Wren (Zaunkönig)
-    "Motacilla alba",          # White Wagtail (Bachstelze)
-    "Phoenicurus ochruros",    # Black Redstart (Hausrotschwanz)
+    "Periparus ater",  # Coal Tit (Tannenmeise)
+    "Poecile palustris",  # Marsh Tit (Sumpfmeise)
+    "Lophophanes cristatus",  # European Crested Tit (Haubenmeise)
+    "Certhia brachydactyla",  # Short-toed Treecreeper (Gartenbaumläufer)
+    "Regulus regulus",  # Goldcrest (Wintergoldhähnchen)
+    "Troglodytes troglodytes",  # Eurasian Wren (Zaunkönig)
+    "Motacilla alba",  # White Wagtail (Bachstelze)
+    "Phoenicurus ochruros",  # Black Redstart (Hausrotschwanz)
 ]
 
 
@@ -58,18 +58,21 @@ class BirdSpeciesClassifier:
         logger.info("loading_bioclip_model", extra={"model": BIOCLIP_MODEL_NAME})
 
         self.model, _, self.preprocess = open_clip.create_model_and_transforms(
-            'hf-hub:imageomics/bioclip-2'
+            "hf-hub:imageomics/bioclip-2"
         )
-        self.tokenizer = open_clip.get_tokenizer('hf-hub:imageomics/bioclip-2')
+        self.tokenizer = open_clip.get_tokenizer("hf-hub:imageomics/bioclip-2")
         self.model.eval()
 
         self.species_list = species_list or DEFAULT_SPECIES_LIST
         self.text_features = self._encode_species(self.species_list)
 
-        logger.info("bioclip_model_loaded", extra={
-            "model": BIOCLIP_MODEL_NAME,
-            "species_count": len(self.species_list)
-        })
+        logger.info(
+            "bioclip_model_loaded",
+            extra={
+                "model": BIOCLIP_MODEL_NAME,
+                "species_count": len(self.species_list),
+            },
+        )
 
     def _encode_species(self, species_list: List[str]) -> torch.Tensor:
         """Pre-encode species names for efficient classification.
@@ -101,7 +104,9 @@ class BirdSpeciesClassifier:
 
             with torch.no_grad():
                 image_features = self.model.encode_image(image_tensor)
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                image_features = image_features / image_features.norm(
+                    dim=-1, keepdim=True
+                )
 
                 logits = (image_features @ self.text_features.T).squeeze(0)
                 probs = torch.nn.functional.softmax(logits * 100, dim=-1)
@@ -110,17 +115,16 @@ class BirdSpeciesClassifier:
             species = self.species_list[idx.item()]
             conf = confidence.item()
 
-            logger.debug("species_classified", extra={
-                "species": species,
-                "confidence": conf
-            })
+            logger.debug(
+                "species_classified", extra={"species": species, "confidence": conf}
+            )
 
             return species, conf
         except Exception as e:
-            logger.error("classification_failed", extra={
-                "image_path": str(image_path),
-                "error": str(e)
-            })
+            logger.error(
+                "classification_failed",
+                extra={"image_path": str(image_path), "error": str(e)},
+            )
             return "unknown", 0.0
 
     def classify_from_array(self, image: Image.Image) -> Tuple[str, float]:
@@ -137,7 +141,9 @@ class BirdSpeciesClassifier:
 
             with torch.no_grad():
                 image_features = self.model.encode_image(image_tensor)
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                image_features = image_features / image_features.norm(
+                    dim=-1, keepdim=True
+                )
 
                 logits = (image_features @ self.text_features.T).squeeze(0)
                 probs = torch.nn.functional.softmax(logits * 100, dim=-1)

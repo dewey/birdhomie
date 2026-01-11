@@ -1,7 +1,6 @@
 """YOLO bird detection module."""
 
 import logging
-from pathlib import Path
 from typing import List, Tuple
 import numpy as np
 from ultralytics import YOLO
@@ -24,10 +23,13 @@ class BirdDetector:
         self.confidence_threshold = confidence_threshold
         self.model = None
 
-        logger.info("loading_yolo_model", extra={
-            "model_path": self.model_path,
-            "confidence_threshold": confidence_threshold
-        })
+        logger.info(
+            "loading_yolo_model",
+            extra={
+                "model_path": self.model_path,
+                "confidence_threshold": confidence_threshold,
+            },
+        )
 
     def load_model(self):
         """Load the YOLO model. Downloads if not present."""
@@ -70,15 +72,22 @@ class BirdDetector:
                 # Get bounding box coordinates
                 x1, y1, x2, y2 = boxes.xyxy[i].cpu().numpy()
 
-                detections.append({
-                    "bbox": (int(x1), int(y1), int(x2), int(y2)),
-                    "confidence": confidence,
-                    "class_id": class_id
-                })
+                detections.append(
+                    {
+                        "bbox": (int(x1), int(y1), int(x2), int(y2)),
+                        "confidence": confidence,
+                        "class_id": class_id,
+                    }
+                )
 
         return detections
 
-    def is_edge_detection(self, bbox: Tuple[int, int, int, int], image_shape: Tuple[int, int], margin: int = 20) -> bool:
+    def is_edge_detection(
+        self,
+        bbox: Tuple[int, int, int, int],
+        image_shape: Tuple[int, int],
+        margin: int = 20,
+    ) -> bool:
         """Check if bounding box touches image edges.
 
         Args:
@@ -92,9 +101,4 @@ class BirdDetector:
         x1, y1, x2, y2 = bbox
         height, width = image_shape[:2]
 
-        return (
-            x1 < margin or
-            y1 < margin or
-            x2 > width - margin or
-            y2 > height - margin
-        )
+        return x1 < margin or y1 < margin or x2 > width - margin or y2 > height - margin

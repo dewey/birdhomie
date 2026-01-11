@@ -30,16 +30,19 @@ def process_files_task(config: Config):
 
             # Update items_processed count
             with db.get_connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE task_runs
                     SET items_processed = ?
                     WHERE id = ?
-                """, (items_processed, task_id))
+                """,
+                    (items_processed, task_id),
+                )
 
-            logger.info("file_processor_completed", extra={
-                "task_id": task_id,
-                "items_processed": items_processed
-            })
+            logger.info(
+                "file_processor_completed",
+                extra={"task_id": task_id, "items_processed": items_processed},
+            )
     except BlockingIOError:
         logger.warning("file_processor_already_running")
 
@@ -52,22 +55,26 @@ def download_unifi_task(config: Config):
 
             # Update items_processed count
             with db.get_connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE task_runs
                     SET items_processed = ?
                     WHERE id = ?
-                """, (items_downloaded, task_id))
+                """,
+                    (items_downloaded, task_id),
+                )
 
-            logger.info("unifi_download_completed", extra={
-                "task_id": task_id,
-                "items_downloaded": items_downloaded
-            })
+            logger.info(
+                "unifi_download_completed",
+                extra={"task_id": task_id, "items_downloaded": items_downloaded},
+            )
 
             # Trigger processing automatically if new items were downloaded
             if items_downloaded > 0:
-                logger.info("triggering_file_processor_after_download", extra={
-                    "items_downloaded": items_downloaded
-                })
+                logger.info(
+                    "triggering_file_processor_after_download",
+                    extra={"items_downloaded": items_downloaded},
+                )
                 process_files_task(config)
     except BlockingIOError:
         logger.warning("unifi_download_already_running")
@@ -79,20 +86,25 @@ def face_annotation_task(config: Config):
 
     try:
         with task_lock("face_annotation") as task_id:
-            items_annotated = annotate_batch(batch_size=config.face_annotation_batch_size)
+            items_annotated = annotate_batch(
+                batch_size=config.face_annotation_batch_size
+            )
 
             # Update items_processed count
             with db.get_connection() as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE task_runs
                     SET items_processed = ?
                     WHERE id = ?
-                """, (items_annotated, task_id))
+                """,
+                    (items_annotated, task_id),
+                )
 
-            logger.info("face_annotation_completed", extra={
-                "task_id": task_id,
-                "items_annotated": items_annotated
-            })
+            logger.info(
+                "face_annotation_completed",
+                extra={"task_id": task_id, "items_annotated": items_annotated},
+            )
     except BlockingIOError:
         logger.warning("face_annotation_already_running")
 
@@ -110,17 +122,20 @@ def regenerate_thumbnails_task(config: Config):
                 items_regenerated = result.rowcount
                 conn.commit()
 
-                conn.execute("""
+                conn.execute(
+                    """
                     UPDATE task_runs
                     SET items_processed = ?
                     WHERE id = ?
-                """, (items_regenerated, task_id))
+                """,
+                    (items_regenerated, task_id),
+                )
                 conn.commit()
 
-            logger.info("thumbnail_regeneration_completed", extra={
-                "task_id": task_id,
-                "items_regenerated": items_regenerated
-            })
+            logger.info(
+                "thumbnail_regeneration_completed",
+                extra={"task_id": task_id, "items_regenerated": items_regenerated},
+            )
     except BlockingIOError:
         logger.warning("thumbnail_regeneration_already_running")
 
@@ -146,21 +161,27 @@ def cleanup_stale_tasks():
 
         for task in stale_tasks:
             # Check if it's from a different process or hostname
-            if task['hostname'] != current_hostname or task['pid'] != current_pid:
-                conn.execute("""
+            if task["hostname"] != current_hostname or task["pid"] != current_pid:
+                conn.execute(
+                    """
                     UPDATE task_runs
                     SET status = 'failed',
                         completed_at = CURRENT_TIMESTAMP,
                         error_message = 'Task interrupted by application restart'
                     WHERE id = ?
-                """, (task['id'],))
+                """,
+                    (task["id"],),
+                )
 
-                logger.warning("cleaned_up_stale_task", extra={
-                    "task_id": task['id'],
-                    "task_type": task['task_type'],
-                    "old_hostname": task['hostname'],
-                    "old_pid": task['pid']
-                })
+                logger.warning(
+                    "cleaned_up_stale_task",
+                    extra={
+                        "task_id": task["id"],
+                        "task_type": task["task_type"],
+                        "old_hostname": task["hostname"],
+                        "old_pid": task["pid"],
+                    },
+                )
 
         conn.commit()
 
@@ -180,9 +201,7 @@ def start_scheduler(config: Config) -> BackgroundScheduler:
     # Clean up any stale tasks from previous runs
     cleanup_stale_tasks()
 
-    executors = {
-        'default': ThreadPoolExecutor(max_workers=2)
-    }
+    executors = {"default": ThreadPoolExecutor(max_workers=2)}
 
     scheduler = BackgroundScheduler(executors=executors)
 
@@ -193,35 +212,38 @@ def start_scheduler(config: Config) -> BackgroundScheduler:
     # Configure periodic tasks
     scheduler.add_job(
         process_files_task,
-        'interval',
+        "interval",
         minutes=config.processor_interval_minutes,
-        id='file_processor',
-        args=[config]
+        id="file_processor",
+        args=[config],
     )
 
     scheduler.add_job(
         download_unifi_task,
-        'interval',
+        "interval",
         minutes=config.ufp_download_interval_minutes,
-        id='unifi_download',
-        args=[config]
+        id="unifi_download",
+        args=[config],
     )
 
     # Face annotation task
     scheduler.add_job(
         face_annotation_task,
-        'interval',
+        "interval",
         minutes=10,
-        id='face_annotation',
-        name='Annotate bird faces',
-        args=[config]
+        id="face_annotation",
+        name="Annotate bird faces",
+        args=[config],
     )
 
     scheduler.start()
-    logger.info("scheduler_started", extra={
-        "processor_interval": config.processor_interval_minutes,
-        "download_interval": config.ufp_download_interval_minutes,
-        "face_annotation_interval": 10
-    })
+    logger.info(
+        "scheduler_started",
+        extra={
+            "processor_interval": config.processor_interval_minutes,
+            "download_interval": config.ufp_download_interval_minutes,
+            "face_annotation_interval": 10,
+        },
+    )
 
     return scheduler

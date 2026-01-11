@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.eggs
+*.egg
+.pytest_cache
+
+# Virtual environments
+.venv
+venv
+ENV
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Data (will be mounted as volume)
+data/
+
+# Development files
+.envrc
+.envrc.example
+*.md
+Makefile
+.claude/
+
+# Test files
+test_*.py

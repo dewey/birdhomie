@@ -20,9 +20,7 @@ def get_db_path() -> Path:
 def get_connection() -> Iterator[sqlite3.Connection]:
     """Context manager for database connections with optimizations."""
     conn = sqlite3.connect(
-        get_db_path(),
-        detect_types=sqlite3.PARSE_DECLTYPES,
-        timeout=30.0
+        get_db_path(), detect_types=sqlite3.PARSE_DECLTYPES, timeout=30.0
     )
     conn.row_factory = sqlite3.Row
 
@@ -30,10 +28,10 @@ def get_connection() -> Iterator[sqlite3.Connection]:
     conn.execute("PRAGMA journal_mode=WAL")
 
     # Performance optimizations
-    conn.execute("PRAGMA synchronous=NORMAL")     # Faster commits, safe with WAL
-    conn.execute("PRAGMA cache_size=-64000")      # 64MB cache
-    conn.execute("PRAGMA temp_store=MEMORY")       # Keep temp tables in memory
-    conn.execute("PRAGMA mmap_size=268435456")     # 256MB memory-mapped I/O
+    conn.execute("PRAGMA synchronous=NORMAL")  # Faster commits, safe with WAL
+    conn.execute("PRAGMA cache_size=-64000")  # 64MB cache
+    conn.execute("PRAGMA temp_store=MEMORY")  # Keep temp tables in memory
+    conn.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
 
     # Enable foreign keys
     conn.execute("PRAGMA foreign_keys=ON")
@@ -92,16 +90,15 @@ def run_migrations(db_path: str = None, migrations_dir: str = None):
                 conn.executescript(sql)
                 conn.execute(
                     "INSERT INTO schema_migrations (version, filename, checksum) VALUES (?, ?, ?)",
-                    (version, migration_file.name, checksum)
+                    (version, migration_file.name, checksum),
                 )
                 conn.commit()
                 logger.info("migration_applied", extra={"version": version})
             except Exception as e:
                 conn.rollback()
-                logger.error("migration_failed", extra={
-                    "version": version,
-                    "error": str(e)
-                })
+                logger.error(
+                    "migration_failed", extra={"version": version, "error": str(e)}
+                )
                 raise
 
     conn.close()
@@ -128,7 +125,7 @@ def get_db_size() -> str:
 
     size_bytes = db_path.stat().st_size
 
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}"
         size_bytes /= 1024.0
@@ -142,7 +139,7 @@ if __name__ == "__main__":
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     if len(sys.argv) > 1:

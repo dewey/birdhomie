@@ -62,14 +62,14 @@ def fetch_wikidata_qid(wikipedia_url: str) -> Optional[str]:
             "action": "query",
             "titles": title,
             "prop": "pageprops",
-            "format": "json"
+            "format": "json",
         }
 
         response = requests.get(
             url,
             params=params,
             headers={"User-Agent": "BirdHomie/1.0"},
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         data = response.json()
@@ -84,10 +84,9 @@ def fetch_wikidata_qid(wikipedia_url: str) -> Optional[str]:
         return None
 
     except requests.RequestException as e:
-        logger.error("wikidata_qid_fetch_failed", extra={
-            "url": wikipedia_url,
-            "error": str(e)
-        })
+        logger.error(
+            "wikidata_qid_fetch_failed", extra={"url": wikipedia_url, "error": str(e)}
+        )
         raise
 
 
@@ -109,14 +108,14 @@ def fetch_wikipedia_page_by_qid(wikidata_qid: str, language: str) -> Optional[Di
             "action": "wbgetentities",
             "ids": wikidata_qid,
             "props": "sitelinks",
-            "format": "json"
+            "format": "json",
         }
 
         response = requests.get(
             url,
             params=params,
             headers={"User-Agent": "BirdHomie/1.0"},
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         data = response.json()
@@ -129,10 +128,10 @@ def fetch_wikipedia_page_by_qid(wikidata_qid: str, language: str) -> Optional[Di
         site_key = f"{language}wiki"
 
         if site_key not in sitelinks:
-            logger.debug("wikipedia_page_not_found", extra={
-                "qid": wikidata_qid,
-                "language": language
-            })
+            logger.debug(
+                "wikipedia_page_not_found",
+                extra={"qid": wikidata_qid, "language": language},
+            )
             return None
 
         title = sitelinks[site_key]["title"]
@@ -140,11 +139,13 @@ def fetch_wikipedia_page_by_qid(wikidata_qid: str, language: str) -> Optional[Di
         # Now fetch the page summary
         time.sleep(RATE_LIMIT_DELAY)
 
-        summary_url = f"https://{language}.wikipedia.org/api/rest_v1/page/summary/{title}"
+        summary_url = (
+            f"https://{language}.wikipedia.org/api/rest_v1/page/summary/{title}"
+        )
         summary_response = requests.get(
             summary_url,
             headers={"User-Agent": "BirdHomie/1.0"},
-            timeout=REQUEST_TIMEOUT
+            timeout=REQUEST_TIMEOUT,
         )
 
         if summary_response.status_code == 404:
@@ -157,15 +158,14 @@ def fetch_wikipedia_page_by_qid(wikidata_qid: str, language: str) -> Optional[Di
             "page_id": summary_data.get("pageid"),
             "title": summary_data.get("title"),
             "url": summary_data.get("content_urls", {}).get("desktop", {}).get("page"),
-            "extract": summary_data.get("extract")
+            "extract": summary_data.get("extract"),
         }
 
     except requests.RequestException as e:
-        logger.error("wikipedia_page_fetch_failed", extra={
-            "qid": wikidata_qid,
-            "language": language,
-            "error": str(e)
-        })
+        logger.error(
+            "wikipedia_page_fetch_failed",
+            extra={"qid": wikidata_qid, "language": language, "error": str(e)},
+        )
         raise
 
 
@@ -177,17 +177,20 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
     """
     # Get the taxon's wikipedia_url and wikidata_qid
     with db.get_connection() as conn:
-        taxon = conn.execute("""
+        taxon = conn.execute(
+            """
             SELECT wikipedia_url, wikidata_qid
             FROM inaturalist_taxa
             WHERE taxon_id = ?
-        """, (taxon_id,)).fetchone()
+        """,
+            (taxon_id,),
+        ).fetchone()
 
         if not taxon:
             return
 
-        wikipedia_url = taxon['wikipedia_url']
-        wikidata_qid = taxon['wikidata_qid']
+        wikipedia_url = taxon["wikipedia_url"]
+        wikidata_qid = taxon["wikidata_qid"]
 
     if not wikipedia_url:
         return
@@ -199,20 +202,23 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
             wikidata_qid = fetch_wikidata_qid(wikipedia_url)
             if wikidata_qid:
                 with db.get_connection() as conn:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         UPDATE inaturalist_taxa
                         SET wikidata_qid = ?
                         WHERE taxon_id = ?
-                    """, (wikidata_qid, taxon_id))
-                logger.info("wikidata_qid_stored", extra={
-                    "taxon_id": taxon_id,
-                    "qid": wikidata_qid
-                })
+                    """,
+                        (wikidata_qid, taxon_id),
+                    )
+                logger.info(
+                    "wikidata_qid_stored",
+                    extra={"taxon_id": taxon_id, "qid": wikidata_qid},
+                )
         except Exception as e:
-            logger.error("wikidata_qid_fetch_error", extra={
-                "taxon_id": taxon_id,
-                "error": str(e)
-            })
+            logger.error(
+                "wikidata_qid_fetch_error",
+                extra={"taxon_id": taxon_id, "error": str(e)},
+            )
             return
 
     if not wikidata_qid:
@@ -222,10 +228,13 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
     for language in ["en", "de"]:
         # Check if already cached
         with db.get_connection() as conn:
-            existing = conn.execute("""
+            existing = conn.execute(
+                """
                 SELECT page_id FROM wikipedia_pages
                 WHERE wikidata_qid = ? AND language_code = ?
-            """, (wikidata_qid, language)).fetchone()
+            """,
+                (wikidata_qid, language),
+            ).fetchone()
 
             if existing:
                 continue
@@ -237,7 +246,8 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
 
             if page_data:
                 with db.get_connection() as conn:
-                    conn.execute("""
+                    conn.execute(
+                        """
                         INSERT INTO wikipedia_pages
                         (wikidata_qid, language_code, page_id, title, url, extract, fetched_at)
                         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -247,24 +257,28 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
                             url = excluded.url,
                             extract = excluded.extract,
                             fetched_at = CURRENT_TIMESTAMP
-                    """, (
-                        wikidata_qid,
-                        language,
-                        page_data['page_id'],
-                        page_data['title'],
-                        page_data['url'],
-                        page_data['extract']
-                    ))
+                    """,
+                        (
+                            wikidata_qid,
+                            language,
+                            page_data["page_id"],
+                            page_data["title"],
+                            page_data["url"],
+                            page_data["extract"],
+                        ),
+                    )
 
-                logger.info("wikipedia_page_stored", extra={
-                    "taxon_id": taxon_id,
-                    "language": language,
-                    "title": page_data['title']
-                })
+                logger.info(
+                    "wikipedia_page_stored",
+                    extra={
+                        "taxon_id": taxon_id,
+                        "language": language,
+                        "title": page_data["title"],
+                    },
+                )
 
         except Exception as e:
-            logger.error("wikipedia_page_fetch_error", extra={
-                "taxon_id": taxon_id,
-                "language": language,
-                "error": str(e)
-            })
+            logger.error(
+                "wikipedia_page_fetch_error",
+                extra={"taxon_id": taxon_id, "language": language, "error": str(e)},
+            )
