@@ -3,12 +3,18 @@
 import sqlite3
 import hashlib
 import logging
+from datetime import datetime
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Iterator
 from .constants import DB_PATH, MIGRATIONS_DIR
 
 logger = logging.getLogger(__name__)
+
+# Register adapters and converters for datetime (required for Python 3.12+)
+sqlite3.register_adapter(datetime, lambda dt: dt.isoformat())
+sqlite3.register_converter("timestamp", lambda b: datetime.fromisoformat(b.decode()))
+sqlite3.register_converter("datetime", lambda b: datetime.fromisoformat(b.decode()))
 
 
 def get_db_path() -> Path:
