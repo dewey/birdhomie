@@ -51,7 +51,9 @@ def download_unifi_task(config: Config):
     """UniFi download task with locking."""
     try:
         with task_lock("unifi_download") as task_id:
-            items_downloaded = download_unifi_events_sync(config, hours=72)
+            items_downloaded = download_unifi_events_sync(
+                config, initial_sync_days=config.ufp_initial_sync_days
+            )
 
             # Update items_processed count
             with db.get_connection() as conn:

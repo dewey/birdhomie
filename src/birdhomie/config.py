@@ -24,6 +24,9 @@ class Config:
     ufp_download_interval_minutes: int
     processor_interval_minutes: int
 
+    # Initial sync
+    ufp_initial_sync_days: int
+
     # Detection thresholds
     min_species_confidence: float
     min_detection_confidence: float
@@ -79,6 +82,7 @@ class Config:
             processor_interval_minutes=int(
                 os.getenv("PROCESSOR_INTERVAL_MINUTES", "5")
             ),
+            ufp_initial_sync_days=int(os.getenv("UFP_INITIAL_SYNC_DAYS", "30")),
             min_species_confidence=min_species,
             min_detection_confidence=min_detection,
             frame_skip=int(os.getenv("FRAME_SKIP", "5")),

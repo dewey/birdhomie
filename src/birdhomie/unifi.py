@@ -13,6 +13,52 @@ from . import database as db
 
 logger = logging.getLogger(__name__)
 
+CURSOR_TYPE_UNIFI_EVENTS = "unifi_events"
+
+
+def get_sync_cursor() -> Optional[datetime]:
+    """Get the last event time from sync cursor.
+
+    Returns:
+        The last event time if cursor exists, None otherwise.
+    """
+    with db.get_connection() as conn:
+        row = conn.execute(
+            "SELECT last_event_time FROM sync_cursors WHERE cursor_type = ?",
+            (CURSOR_TYPE_UNIFI_EVENTS,),
+        ).fetchone()
+        if row:
+            return row["last_event_time"]
+    return None
+
+
+def set_sync_cursor(event_time: datetime):
+    """Update the sync cursor with the newest event time.
+
+    Args:
+        event_time: The timestamp of the newest event fetched.
+    """
+    with db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO sync_cursors (cursor_type, last_event_time)
+            VALUES (?, ?)
+            ON CONFLICT(cursor_type) DO UPDATE SET last_event_time = excluded.last_event_time
+            """,
+            (CURSOR_TYPE_UNIFI_EVENTS, event_time),
+        )
+
+
+def is_fresh_database() -> bool:
+    """Check if this is a fresh database with no files yet.
+
+    Returns:
+        True if no files exist in the database.
+    """
+    with db.get_connection() as conn:
+        row = conn.execute("SELECT COUNT(*) as count FROM files").fetchone()
+        return row["count"] == 0
+
 
 class UnifiProtectDownloader:
     """Downloads motion detection events from UniFi Protect."""
@@ -52,23 +98,44 @@ class UnifiProtectDownloader:
                 pass
             self._client = None
 
-    async def download_recent_events(self, hours: int = 24) -> int:
-        """Download detection events from the last N hours.
+    async def download_recent_events(self, initial_sync_days: int = 30) -> int:
+        """Download detection events using cursor-based incremental sync.
+
+        On first run (fresh database), fetches events from the last N days.
+        On subsequent runs, fetches from the last known event time.
 
         Args:
-            hours: Number of hours to look back
+            initial_sync_days: Number of days to look back on fresh database
 
         Returns:
             Number of events downloaded
         """
         client = await self._get_client()
 
-        start_time = datetime.now() - timedelta(hours=hours)
+        # Determine start time based on sync state
+        cursor_time = get_sync_cursor()
         end_time = datetime.now()
+
+        if cursor_time:
+            # Incremental sync: from cursor to now
+            start_time = cursor_time
+            sync_type = "incremental"
+        elif is_fresh_database():
+            # Fresh DB: extended lookback
+            start_time = datetime.now() - timedelta(days=initial_sync_days)
+            sync_type = "initial"
+        else:
+            # Existing DB but no cursor (post-migration): use 72h default
+            start_time = datetime.now() - timedelta(hours=72)
+            sync_type = "migration_fallback"
 
         logger.info(
             "fetching_unifi_events",
-            extra={"start": start_time.isoformat(), "end": end_time.isoformat()},
+            extra={
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "sync_type": sync_type,
+            },
         )
 
         # Determine event types to fetch
@@ -96,16 +163,30 @@ class UnifiProtectDownloader:
         )
 
         downloaded = 0
+        newest_event_time = None
+
         for event in filtered_events:
             try:
                 if await self._download_event(client, event):
                     downloaded += 1
+                # Track newest event time regardless of download status
+                # (already-downloaded events still update cursor)
+                if newest_event_time is None or event.start > newest_event_time:
+                    newest_event_time = event.start
             except Exception as e:
                 logger.error(
                     "event_download_failed",
                     extra={"event_id": event.id, "error": str(e)},
                     exc_info=True,
                 )
+
+        # Update cursor with newest event time
+        if newest_event_time:
+            set_sync_cursor(newest_event_time)
+            logger.info(
+                "sync_cursor_updated",
+                extra={"newest_event_time": newest_event_time.isoformat()},
+            )
 
         return downloaded
 
@@ -212,12 +293,16 @@ class UnifiProtectDownloader:
             return False
 
 
-def download_unifi_events_sync(config: Config, hours: int = 24) -> int:
+def download_unifi_events_sync(config: Config, initial_sync_days: int = 30) -> int:
     """Download UniFi Protect events synchronously.
+
+    Uses cursor-based incremental sync. On first run (fresh database),
+    fetches events from the last N days. On subsequent runs, fetches
+    from the last known event time.
 
     Args:
         config: Application configuration
-        hours: Number of hours to look back
+        initial_sync_days: Number of days to look back on fresh database
 
     Returns:
         Number of events downloaded
@@ -227,7 +312,9 @@ def download_unifi_events_sync(config: Config, hours: int = 24) -> int:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        count = loop.run_until_complete(downloader.download_recent_events(hours=hours))
+        count = loop.run_until_complete(
+            downloader.download_recent_events(initial_sync_days=initial_sync_days)
+        )
         loop.run_until_complete(downloader.close())
         return count
     finally:
