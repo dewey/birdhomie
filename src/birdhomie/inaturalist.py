@@ -3,7 +3,6 @@
 import logging
 import time
 import requests
-from pathlib import Path
 from typing import Optional, Dict
 from . import database as db
 from .constants import SPECIES_IMAGES_DIR
