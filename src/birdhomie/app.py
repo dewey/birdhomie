@@ -811,13 +811,14 @@ def tasks_list():
     """List all task runs."""
     with db.get_connection() as conn:
         # Get all recent tasks, showing running tasks first
+        # Format timestamps as ISO 8601 with 'Z' suffix to indicate UTC
         tasks = conn.execute("""
             SELECT
                 id,
                 task_type,
                 status,
-                started_at,
-                completed_at,
+                started_at || 'Z' as started_at,
+                CASE WHEN completed_at IS NOT NULL THEN completed_at || 'Z' ELSE NULL END as completed_at,
                 duration_seconds,
                 items_processed,
                 items_failed,
@@ -834,7 +835,14 @@ def tasks_list():
             LIMIT 100
         """).fetchall()
 
-    return render_template('tasks_list.html', tasks=tasks)
+    # Pass scheduler configuration
+    schedule_info = {
+        'unifi_download_interval': config.ufp_download_interval_minutes,
+        'file_processor_interval': config.processor_interval_minutes,
+        'face_annotation_interval': 10  # Hardcoded in scheduler
+    }
+
+    return render_template('tasks_list.html', tasks=tasks, schedule=schedule_info)
 
 
 @app.route('/tasks/api')
@@ -842,13 +850,14 @@ def tasks_api():
     """API endpoint to get task runs as JSON."""
     with db.get_connection() as conn:
         # Get all recent tasks, showing running tasks first
+        # Format timestamps as ISO 8601 with 'Z' suffix to indicate UTC
         tasks = conn.execute("""
             SELECT
                 id,
                 task_type,
                 status,
-                started_at,
-                completed_at,
+                started_at || 'Z' as started_at,
+                CASE WHEN completed_at IS NOT NULL THEN completed_at || 'Z' ELSE NULL END as completed_at,
                 duration_seconds,
                 items_processed,
                 items_failed,

@@ -72,6 +72,13 @@
         </div>
     </div>
 
+    <div class="mb-6 text-sm text-gray-600">
+        <span class="font-medium">Schedule:</span>
+        UniFi Download every {{ schedule.unifi_download_interval }}m,
+        File Processor every {{ schedule.file_processor_interval }}m,
+        Face Annotation every {{ schedule.face_annotation_interval }}m
+    </div>
+
     <h2 class="text-xl font-semibold text-gray-900 mb-4">Task History</h2>
 
     {% if tasks %}

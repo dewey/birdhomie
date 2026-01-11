@@ -71,7 +71,7 @@ class Config:
             ufp_camera_id=required["UFP_CAMERA_ID"],
             ufp_detection_types=os.getenv("UFP_DETECTION_TYPES", "motion"),
             ufp_ssl_verify=os.getenv("UFP_SSL_VERIFY", "false").lower() == "true",
-            ufp_download_interval_minutes=int(os.getenv("UFP_DOWNLOAD_INTERVAL_MINUTES", "30")),
+            ufp_download_interval_minutes=int(os.getenv("UFP_DOWNLOAD_INTERVAL_MINUTES", "60")),
             processor_interval_minutes=int(os.getenv("PROCESSOR_INTERVAL_MINUTES", "5")),
             min_species_confidence=min_species,
             min_detection_confidence=min_detection,

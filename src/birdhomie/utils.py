@@ -116,6 +116,7 @@ def task_lock(task_type: str):
                 UPDATE task_runs
                 SET status = 'failed',
                     completed_at = CURRENT_TIMESTAMP,
+                    duration_seconds = (julianday(CURRENT_TIMESTAMP) - julianday(started_at)) * 86400.0,
                     error_message = ?
                 WHERE id = ?
             """, (str(e), task_id))
@@ -127,7 +128,8 @@ def task_lock(task_type: str):
             conn.execute("""
                 UPDATE task_runs
                 SET status = 'success',
-                    completed_at = CURRENT_TIMESTAMP
+                    completed_at = CURRENT_TIMESTAMP,
+                    duration_seconds = (julianday(CURRENT_TIMESTAMP) - julianday(started_at)) * 86400.0
                 WHERE id = ?
             """, (task_id,))
             conn.commit()

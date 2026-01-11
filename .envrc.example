@@ -11,7 +11,7 @@ export UFP_DETECTION_TYPES=motion
 export UFP_SSL_VERIFY=false
 
 # Task intervals (in minutes)
-export UFP_DOWNLOAD_INTERVAL_MINUTES=30
+export UFP_DOWNLOAD_INTERVAL_MINUTES=60
 export PROCESSOR_INTERVAL_MINUTES=5
 
 # Detection confidence thresholds (0.0-1.0)
