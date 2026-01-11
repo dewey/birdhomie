@@ -97,6 +97,10 @@ def format_datetime_filter(dt, format_type="full", show_tooltip=True):
     if isinstance(dt, str):
         dt = datetime.fromisoformat(dt)
 
+    # Convert UTC datetime to local time for display
+    if dt.tzinfo is not None:
+        dt = dt.astimezone().replace(tzinfo=None)
+
     locale = g.get("locale", "en")
 
     # Generate full timestamp for tooltip
@@ -157,9 +161,10 @@ def format_time_ago_filter(dt):
     if isinstance(dt, str):
         dt = datetime.fromisoformat(dt)
 
-    # Remove timezone info to ensure both are naive for comparison
+    # Convert UTC datetime to local time for display and comparison
     if dt.tzinfo is not None:
-        dt = dt.replace(tzinfo=None)
+        # Convert to local time, then make naive for comparison with datetime.now()
+        dt = dt.astimezone().replace(tzinfo=None)
 
     now = datetime.now()
     diff = now - dt
