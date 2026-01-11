@@ -42,3 +42,13 @@ override-dependencies = [
     "opencv-python>=4.11.0.86 ; sys_platform == 'never'",
 ]
 
+# Use CPU-only PyTorch wheels (saves ~1.8GB vs CUDA version)
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+

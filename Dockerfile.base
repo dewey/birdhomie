@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+#
+# Base image for birdhomie with pre-installed ML dependencies
+# Build: docker build -f Dockerfile.base -t ghcr.io/dewey/birdhomie-base:latest .
+# Push:  docker push ghcr.io/dewey/birdhomie-base:latest
+#
+
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+
+# Install runtime dependencies for OpenCV and video processing
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+        libglib2.0-0 \
+        ffmpeg \
+        && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependency files for uv sync
+COPY pyproject.toml uv.lock ./
+
+# Install all dependencies (PyTorch CPU-only via index in pyproject.toml)
+ENV UV_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --no-install-project
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Label for identification
+LABEL org.opencontainers.image.source="https://github.com/dewey/birdhomie"
+LABEL org.opencontainers.image.description="Base image with ML dependencies for birdhomie"
