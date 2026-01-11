@@ -1,14 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.14-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies for building
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -16,22 +12,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
+# Install dependencies with CPU-only PyTorch
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --no-dev --no-install-project
 
-# Copy source code
+# Copy source code and install project
 COPY src/ ./src/
 COPY migrations/ ./migrations/
-
-# Install the project
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --no-dev
 
 
-FROM python:3.14-slim AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
-# Install runtime dependencies for OpenCV
+# Install runtime dependencies for OpenCV and video processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -55,12 +50,9 @@ RUN mkdir -p /app/data
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-# Expose Flask port
 EXPOSE 5000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/')" || exit 1
 
-# Run the application
 CMD ["python", "-m", "birdhomie.app"]
