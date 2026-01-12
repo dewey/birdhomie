@@ -2,6 +2,14 @@
 
 Bird detection and classification system for UniFi Protect with web interface.
 
+<img src="docs/birdhouse.png" width="600" alt="Birdhouse with UniFi camera">
+
+## Screenshots
+
+| Home | Insights | Species Detail | Face Labeling | Species Correction |
+|:----:|:--------:|:--------------:|:-------------:|:------------------:|
+| [![Home](docs/screenshot-home.png)](docs/screenshot-home.png) | [![Insights](docs/screenshot-insights.png)](docs/screenshot-insights.png) | [![Species](docs/screenshot-species.png)](docs/screenshot-species.png) | [![Labeling](docs/screenshot-labeling.png)](docs/screenshot-labeling.png) | [![Species Correction](docs/screenshot-species-correction.png)](docs/screenshot-species-correction.png) |
+
 ## Features
 
 - Automatic bird detection using YOLOv8m
