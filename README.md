@@ -196,6 +196,26 @@ make dev
 
 This compiles translations, enables hot reload, and runs on http://127.0.0.1:5001.
 
+### Syncing Production Data for Testing
+
+To test with real production data locally, you can sync your server's data directory using rsync:
+
+1. Configure sync settings in your `.envrc`:
+   ```bash
+   export SYNC_REMOTE=ubuntu@your-server.example.com:/home/ubuntu/services/birdhomie/data
+   ```
+
+2. Run the sync command:
+   ```bash
+   make sync-data
+   ```
+
+This will download the database, models, processed files, and species images to your local `./data/` directory. The `logs/` directory is automatically excluded from sync.
+
+**Prerequisites:**
+- SSH access to your server with public key authentication configured
+- rsync installed locally (pre-installed on macOS and most Linux distributions)
+
 ### Available Make Commands
 
 | Command | Description |
@@ -207,6 +227,7 @@ This compiles translations, enables hot reload, and runs on http://127.0.0.1:500
 | `make update-translations` | Update translation catalogs |
 | `make migrate` | Run pending migrations |
 | `make process` | Run file processor manually |
+| `make sync-data` | Sync production data locally for testing |
 | `make clean` | Clean generated files |
 | `make help` | Show available commands |
 

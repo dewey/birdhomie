@@ -57,6 +57,14 @@ export FRAME_SKIP=5
 export FILE_RETENTION_DAYS=30
 
 # =============================================================================
+# Data Sync Settings (Development)
+# =============================================================================
+# Configure this to sync production data to your local machine for testing.
+
+# Remote location in rsync format: user@host:/path/to/data
+export SYNC_REMOTE=ubuntu@your-server.example.com:/home/ubuntu/services/birdhomie/data
+
+# =============================================================================
 # Development Settings
 # =============================================================================
 # Only change these if you are developing or debugging the application.

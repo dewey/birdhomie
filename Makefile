@@ -1,4 +1,4 @@
-.PHONY: run dev compile-translations extract-translations update-translations init-db migrate process clean help build-base-image
+.PHONY: run dev compile-translations extract-translations update-translations init-db migrate process clean help build-base-image sync-data
 
 # Compile translations and start the app
 run: compile-translations
@@ -45,6 +45,19 @@ build-base-image:
 		-t ghcr.io/dewey/birdhomie-base:latest \
 		--push .
 
+# Sync production data locally (requires SYNC_REMOTE)
+sync-data:
+	@if [ -z "$(SYNC_REMOTE)" ]; then \
+		echo "Error: SYNC_REMOTE not set. Configure in .envrc and run 'direnv allow' or 'source .envrc'"; \
+		exit 1; \
+	fi
+	@echo "Syncing data from $(SYNC_REMOTE) to ./data/"
+	@mkdir -p data
+	rsync -avz --progress \
+		--exclude='logs/' \
+		$(SYNC_REMOTE)/ \
+		./data/
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -56,5 +69,6 @@ help:
 	@echo "  init-db               - Initialize database"
 	@echo "  migrate               - Run pending migrations"
 	@echo "  process               - Run file processor manually"
+	@echo "  sync-data             - Sync production data locally for testing"
 	@echo "  clean                 - Clean generated files"
 	@echo "  build-base-image      - Build and push base image (amd64)"
