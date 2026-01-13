@@ -15,12 +15,18 @@ CREATE TABLE external_identifiers (
     language_code TEXT DEFAULT NULL,  -- NULL for language-agnostic resources, language code for Wikipedia
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fetched_at TIMESTAMP,
-    UNIQUE(taxon_id, source, COALESCE(language_code, ''))  -- Use COALESCE to treat NULL as '' for uniqueness
+    fetched_at TIMESTAMP
 );
 
 CREATE INDEX idx_external_identifiers_taxon ON external_identifiers(taxon_id);
 CREATE INDEX idx_external_identifiers_source ON external_identifiers(source);
+
+-- Use partial unique indexes to handle NULL language_code correctly
+-- SQLite treats NULL as distinct, so we need two indexes:
+-- 1. For rows WITH language_code (e.g., Wikipedia in different languages)
+CREATE UNIQUE INDEX idx_ext_id_with_lang ON external_identifiers(taxon_id, source, language_code) WHERE language_code IS NOT NULL;
+-- 2. For rows WITHOUT language_code (e.g., Wikidata, eBird, iNaturalist - one per taxon)
+CREATE UNIQUE INDEX idx_ext_id_no_lang ON external_identifiers(taxon_id, source) WHERE language_code IS NULL;
 
 CREATE TRIGGER update_external_identifiers_timestamp
     AFTER UPDATE ON external_identifiers

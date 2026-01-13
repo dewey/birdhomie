@@ -716,14 +716,22 @@ def add_external_identifier(taxon_id):
                 return redirect(url_for("species_detail", taxon_id=taxon_id))
 
             # Insert or update external identifier
-            # Use COALESCE in ON CONFLICT to match the unique constraint
+            # Use INSERT OR REPLACE pattern for upsert with partial unique indexes
+            # First try to delete any existing matching row, then insert
+            if language_code is None:
+                conn.execute(
+                    "DELETE FROM external_identifiers WHERE taxon_id = ? AND source = ? AND language_code IS NULL",
+                    (taxon_id, source),
+                )
+            else:
+                conn.execute(
+                    "DELETE FROM external_identifiers WHERE taxon_id = ? AND source = ? AND language_code = ?",
+                    (taxon_id, source, language_code),
+                )
             conn.execute(
                 """
                 INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
-                    identifier = excluded.identifier,
-                    fetched_at = CURRENT_TIMESTAMP
             """,
                 (taxon_id, source, identifier, language_code),
             )
