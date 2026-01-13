@@ -22,7 +22,9 @@ class TestPublicRoutes:
     def test_simple_routes(self, client, route, description):
         """Test that simple routes return 200."""
         response = client.get(route)
-        assert response.status_code == 200, f"{description} ({route}) returned {response.status_code}"
+        assert response.status_code == 200, (
+            f"{description} ({route}) returned {response.status_code}"
+        )
 
     def test_api_hourly_activity(self, client):
         """Test hourly activity API endpoint."""
@@ -36,11 +38,11 @@ class TestRouteDiscovery:
 
     # Routes to skip (require specific IDs, auth, or have side effects)
     SKIP_PATTERNS = [
-        "/data/",           # Static file serving
-        "/thumbnail/",      # Requires valid detection ID
-        "/metrics",         # Prometheus metrics
-        "/set-language",    # Redirects
-        "<",                # Routes with parameters
+        "/data/",  # Static file serving
+        "/thumbnail/",  # Requires valid detection ID
+        "/metrics",  # Prometheus metrics
+        "/set-language",  # Redirects
+        "<",  # Routes with parameters
     ]
 
     def test_discover_all_get_routes(self, client):

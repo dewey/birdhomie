@@ -28,10 +28,12 @@ def client():
             shutil.copy(real_db_path, test_db_path)
 
         # Configure app for testing
-        app.config.update({
-            "TESTING": True,
-            "WTF_CSRF_ENABLED": False,
-        })
+        app.config.update(
+            {
+                "TESTING": True,
+                "WTF_CSRF_ENABLED": False,
+            }
+        )
 
         # Patch database path for tests
         original_get_db_path = db.get_db_path
@@ -51,10 +53,12 @@ def client_empty_db():
     with tempfile.TemporaryDirectory() as tmpdir:
         test_db_path = Path(tmpdir) / "birdhomie.db"
 
-        app.config.update({
-            "TESTING": True,
-            "WTF_CSRF_ENABLED": False,
-        })
+        app.config.update(
+            {
+                "TESTING": True,
+                "WTF_CSRF_ENABLED": False,
+            }
+        )
 
         original_get_db_path = db.get_db_path
         db.get_db_path = lambda: test_db_path
