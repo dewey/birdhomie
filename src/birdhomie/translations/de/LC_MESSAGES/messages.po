@@ -458,3 +458,135 @@ msgstr "Gesicht neu beschriften"
 msgid "Recent Visits"
 msgstr "Letzte Besuche"
 
+#: src/birdhomie/app.py src/birdhomie/templates/species_detail.html
+msgid "External Resources"
+msgstr "Externe Ressourcen"
+
+#: src/birdhomie/app.py
+msgid "iNaturalist"
+msgstr "iNaturalist"
+
+#: src/birdhomie/app.py
+msgid "Wikipedia"
+msgstr "Wikipedia"
+
+#: src/birdhomie/app.py
+msgid "Wikidata"
+msgstr "Wikidata"
+
+#: src/birdhomie/app.py
+msgid "eBird"
+msgstr "eBird"
+
+#: src/birdhomie/app.py
+msgid "Species taxonomy and observations"
+msgstr "Arttaxonomie und Beobachtungen"
+
+#: src/birdhomie/app.py
+msgid "Encyclopedia article"
+msgstr "Enzyklopädieartikel"
+
+#: src/birdhomie/app.py
+msgid "Structured data"
+msgstr "Strukturierte Daten"
+
+#: src/birdhomie/app.py
+msgid "Sightings and range maps"
+msgstr "Sichtungen und Verbreitungskarten"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Add External Resource"
+msgstr "Externe Ressource hinzufügen"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Source"
+msgstr "Quelle"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Select source..."
+msgstr "Quelle auswählen..."
+
+#: src/birdhomie/templates/species_detail.html
+msgid "URL or Identifier"
+msgstr "URL oder Kennung"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Paste full URL or just the identifier"
+msgstr "Vollständige URL oder nur die Kennung einfügen"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Language"
+msgstr "Sprache"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Select language..."
+msgstr "Sprache auswählen..."
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Add Resource"
+msgstr "Ressource hinzufügen"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "No external resources linked yet."
+msgstr "Noch keine externen Ressourcen verknüpft."
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: src/birdhomie/app.py
+msgid "Source and identifier are required"
+msgstr "Quelle und Kennung sind erforderlich"
+
+#: src/birdhomie/app.py
+msgid "Invalid URL or identifier format"
+msgstr "Ungültiges URL- oder Kennungsformat"
+
+#: src/birdhomie/app.py
+msgid "Invalid source"
+msgstr "Ungültige Quelle"
+
+#: src/birdhomie/app.py
+msgid "Language is required for Wikipedia"
+msgstr "Sprache ist für Wikipedia erforderlich"
+
+#: src/birdhomie/app.py
+msgid "Species not found"
+msgstr "Art nicht gefunden"
+
+#: src/birdhomie/app.py
+msgid "External resource added successfully"
+msgstr "Externe Ressource erfolgreich hinzugefügt"
+
+#: src/birdhomie/app.py
+msgid "Failed to add external resource"
+msgstr "Fehler beim Hinzufügen der externen Ressource"
+
+#: src/birdhomie/app.py
+msgid "Source is required"
+msgstr "Quelle ist erforderlich"
+
+#: src/birdhomie/app.py
+msgid "Cannot delete iNaturalist identifier"
+msgstr "iNaturalist-Kennung kann nicht gelöscht werden"
+
+#: src/birdhomie/app.py
+msgid "External resource not found"
+msgstr "Externe Ressource nicht gefunden"
+
+#: src/birdhomie/app.py
+msgid "External resource deleted successfully"
+msgstr "Externe Ressource erfolgreich gelöscht"
+
+#: src/birdhomie/app.py
+msgid "Failed to delete external resource"
+msgstr "Fehler beim Löschen der externen Ressource"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Delete this external resource?"
+msgstr "Diese externe Ressource löschen?"
+
+#: src/birdhomie/templates/species_detail.html
+msgid "Delete"
+msgstr "Löschen"
+

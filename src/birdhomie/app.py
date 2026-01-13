@@ -243,6 +243,66 @@ def data_path_filter(path):
     return path.lstrip("/")
 
 
+def build_external_url(source: str, identifier: str, language_code: str = None) -> str:
+    """Build full URL from source and identifier."""
+    if source == "wikipedia":
+        return identifier  # Already full URL
+
+    url_templates = {
+        "inaturalist": "https://www.inaturalist.org/taxa/{id}",
+        "wikidata": "https://www.wikidata.org/wiki/{id}",
+        "ebird": "https://ebird.org/species/{id}",
+    }
+    return url_templates.get(source, identifier).format(id=identifier)
+
+
+def get_source_icon(source: str) -> str:
+    """Get Bootstrap Icon class for source."""
+    icons = {
+        "inaturalist": "bi-binoculars-fill",
+        "wikipedia": "bi-wikipedia",
+        "wikidata": "bi-database",
+        "ebird": "bi-egg",
+    }
+    return icons.get(source, "bi-link-45deg")
+
+
+def get_source_label(source: str, language_code: str = None) -> str:
+    """Get localized display label with language code for multi-language resources."""
+    labels = {
+        "inaturalist": _("iNaturalist"),
+        "wikipedia": _("Wikipedia"),
+        "wikidata": _("Wikidata"),
+        "ebird": _("eBird"),
+    }
+
+    label = labels.get(source, source.title())
+
+    # Append language code if present
+    if language_code:
+        label = f"{label} ({language_code.upper()})"
+
+    return label
+
+
+def get_source_description(source: str) -> str:
+    """Get localized description for source."""
+    descriptions = {
+        "inaturalist": _("Species taxonomy and observations"),
+        "wikipedia": _("Encyclopedia article"),
+        "wikidata": _("Structured data"),
+        "ebird": _("Sightings and range maps"),
+    }
+    return descriptions.get(source, "")
+
+
+# Register external identifier helpers as template globals
+app.jinja_env.globals["build_external_url"] = build_external_url
+app.jinja_env.globals["get_source_icon"] = get_source_icon
+app.jinja_env.globals["get_source_label"] = get_source_label
+app.jinja_env.globals["get_source_description"] = get_source_description
+
+
 @app.before_request
 def before_request():
     """Set up request context."""
@@ -461,13 +521,14 @@ def species_list():
 def species_detail(taxon_id):
     """Species detail page."""
     with db.get_connection() as conn:
-        # Get species info
+        # Get species info with wikidata_qid from external_identifiers
         species = conn.execute(
             """
             SELECT
                 t.*,
                 si.local_path as image_path,
                 si.attribution,
+                ei_wikidata.identifier as wikidata_qid,
                 wp.extract as wikipedia_excerpt,
                 wp.url as wikipedia_url,
                 COUNT(DISTINCT v.id) as total_visits,
@@ -475,7 +536,9 @@ def species_detail(taxon_id):
                 MAX(f.event_start) as last_seen
             FROM inaturalist_taxa t
             LEFT JOIN species_images si ON t.taxon_id = si.taxon_id AND si.is_default = 1
-            LEFT JOIN wikipedia_pages wp ON t.wikidata_qid = wp.wikidata_qid
+            LEFT JOIN external_identifiers ei_wikidata ON t.taxon_id = ei_wikidata.taxon_id
+                AND ei_wikidata.source = 'wikidata'
+            LEFT JOIN wikipedia_pages wp ON ei_wikidata.identifier = wp.wikidata_qid
                 AND wp.language_code = ?
             LEFT JOIN visits v ON t.taxon_id IN (v.inaturalist_taxon_id, v.override_taxon_id) AND v.deleted_at IS NULL
             LEFT JOIN files f ON v.file_id = f.id
@@ -487,6 +550,25 @@ def species_detail(taxon_id):
 
         if not species:
             return "Species not found", 404
+
+        # Fetch all external identifiers (iNaturalist, Wikipedia, Wikidata, eBird)
+        external_identifiers = conn.execute(
+            """
+            SELECT source, identifier, language_code
+            FROM external_identifiers
+            WHERE taxon_id = ?
+            ORDER BY
+                CASE source
+                    WHEN 'inaturalist' THEN 1
+                    WHEN 'wikipedia' THEN 2
+                    WHEN 'wikidata' THEN 3
+                    WHEN 'ebird' THEN 4
+                    ELSE 5
+                END,
+                language_code  -- Secondary sort for multiple language versions (NULL first)
+        """,
+            (taxon_id,),
+        ).fetchall()
 
         # Get recent visits
         visits = conn.execute(
@@ -539,7 +621,194 @@ def species_detail(taxon_id):
             species=species,
             visits=visits,
             recent_crops=recent_crops,
+            external_identifiers=external_identifiers,
         )
+
+
+def parse_external_identifier(source: str, input_value: str) -> str:
+    """Parse identifier from URL or return as-is if already an identifier.
+
+    Args:
+        source: The external source type
+        input_value: URL or identifier string from user input
+
+    Returns:
+        Parsed identifier or None if invalid
+    """
+    import re
+    from urllib.parse import urlparse
+
+    # If it doesn't look like a URL, return as-is (assume it's already an identifier)
+    if not input_value.startswith(("http://", "https://")):
+        return input_value
+
+    # Parse URL patterns for each source
+    try:
+        parsed = urlparse(input_value)
+
+        if source == "ebird":
+            # https://ebird.org/species/gretit1 -> gretit1
+            match = re.search(r"/species/([a-z0-9]+)", parsed.path)
+            if match:
+                return match.group(1)
+
+        elif source == "wikipedia":
+            # Return full URL for Wikipedia
+            return input_value
+
+        elif source == "wikidata":
+            # https://www.wikidata.org/wiki/Q25394 -> Q25394
+            match = re.search(r"/wiki/(Q\d+)", parsed.path)
+            if match:
+                return match.group(1)
+
+        elif source == "inaturalist":
+            # https://www.inaturalist.org/taxa/13094 -> 13094
+            match = re.search(r"/taxa/(\d+)", parsed.path)
+            if match:
+                return match.group(1)
+
+        # If we couldn't parse it, return None
+        return None
+
+    except Exception:
+        return None
+
+
+@app.route("/species/<int:taxon_id>/add-identifier", methods=["POST"])
+def add_external_identifier(taxon_id):
+    """Add an external identifier to a species."""
+    source = request.form.get("source")
+    identifier_input = request.form.get("identifier", "").strip()
+    language_code = request.form.get("language_code") or None  # Use None instead of ''
+
+    if not source or not identifier_input:
+        flash(_("Source and identifier are required"), "error")
+        return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+    # Parse identifier from URL if needed
+    identifier = parse_external_identifier(source, identifier_input)
+
+    if not identifier:
+        flash(_("Invalid URL or identifier format"), "error")
+        return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+    # Validate source
+    valid_sources = ["inaturalist", "wikipedia", "wikidata", "ebird"]
+    if source not in valid_sources:
+        flash(_("Invalid source"), "error")
+        return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+    # For Wikipedia, language_code is required
+    if source == "wikipedia" and not language_code:
+        flash(_("Language is required for Wikipedia"), "error")
+        return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+    try:
+        with db.get_connection() as conn:
+            # Verify taxon exists
+            taxon = conn.execute(
+                "SELECT taxon_id FROM inaturalist_taxa WHERE taxon_id = ?", (taxon_id,)
+            ).fetchone()
+
+            if not taxon:
+                flash(_("Species not found"), "error")
+                return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+            # Insert or update external identifier
+            # Use COALESCE in ON CONFLICT to match the unique constraint
+            conn.execute(
+                """
+                INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
+                    identifier = excluded.identifier,
+                    fetched_at = CURRENT_TIMESTAMP
+            """,
+                (taxon_id, source, identifier, language_code),
+            )
+
+        logger.info(
+            "external_identifier_added",
+            extra={
+                "taxon_id": taxon_id,
+                "source": source,
+                "identifier": identifier,
+                "language_code": language_code,
+            },
+        )
+
+        flash(_("External resource added successfully"), "success")
+
+    except Exception as e:
+        logger.error(
+            "external_identifier_add_failed",
+            extra={
+                "taxon_id": taxon_id,
+                "source": source,
+                "error": str(e),
+            },
+        )
+        flash(_("Failed to add external resource"), "error")
+
+    return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+
+@app.route("/species/<int:taxon_id>/delete-identifier", methods=["POST"])
+def delete_external_identifier(taxon_id):
+    """Delete an external identifier from a species."""
+    source = request.form.get("source")
+    language_code = request.form.get("language_code")
+
+    # Convert empty string to None for database query
+    if language_code == "":
+        language_code = None
+
+    if not source:
+        flash(_("Source is required"), "error")
+        return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+    # Prevent deletion of iNaturalist identifier (it's the primary link)
+    if source == "inaturalist":
+        flash(_("Cannot delete iNaturalist identifier"), "error")
+        return redirect(url_for("species_detail", taxon_id=taxon_id))
+
+    try:
+        with db.get_connection() as conn:
+            # Delete the identifier
+            result = conn.execute(
+                """
+                DELETE FROM external_identifiers
+                WHERE taxon_id = ? AND source = ? AND language_code IS ?
+            """,
+                (taxon_id, source, language_code),
+            )
+
+            if result.rowcount == 0:
+                flash(_("External resource not found"), "error")
+            else:
+                logger.info(
+                    "external_identifier_deleted",
+                    extra={
+                        "taxon_id": taxon_id,
+                        "source": source,
+                        "language_code": language_code,
+                    },
+                )
+                flash(_("External resource deleted successfully"), "success")
+
+    except Exception as e:
+        logger.error(
+            "external_identifier_delete_failed",
+            extra={
+                "taxon_id": taxon_id,
+                "source": source,
+                "error": str(e),
+            },
+        )
+        flash(_("Failed to delete external resource"), "error")
+
+    return redirect(url_for("species_detail", taxon_id=taxon_id))
 
 
 @app.route("/visits/<int:visit_id>")
@@ -1379,8 +1648,12 @@ def set_language():
 def main():
     """Main entry point for the application."""
     from .scheduler import start_scheduler
+    from . import configure_pytorch
 
     logger.info("starting_birdhomie_app")
+
+    # Configure PyTorch for optimal CPU inference and log hardware capabilities
+    configure_pytorch(logger=logger)
 
     # Initialize database
     db.init_database()

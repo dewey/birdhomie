@@ -175,13 +175,11 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
     Args:
         taxon_id: iNaturalist taxon ID
     """
-    # Get the taxon's wikipedia_url and wikidata_qid
+    # Get the taxon's wikidata_qid from external_identifiers
     with db.get_connection() as conn:
         taxon = conn.execute(
             """
-            SELECT wikipedia_url, wikidata_qid
-            FROM inaturalist_taxa
-            WHERE taxon_id = ?
+            SELECT taxon_id FROM inaturalist_taxa WHERE taxon_id = ?
         """,
             (taxon_id,),
         ).fetchone()
@@ -189,37 +187,16 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
         if not taxon:
             return
 
-        wikipedia_url = taxon["wikipedia_url"]
-        wikidata_qid = taxon["wikidata_qid"]
+        # Get wikidata_qid from external_identifiers
+        wikidata_row = conn.execute(
+            """
+            SELECT identifier FROM external_identifiers
+            WHERE taxon_id = ? AND source = 'wikidata'
+        """,
+            (taxon_id,),
+        ).fetchone()
 
-    if not wikipedia_url:
-        return
-
-    # Fetch Wikidata QID if not present
-    if not wikidata_qid:
-        time.sleep(RATE_LIMIT_DELAY)
-        try:
-            wikidata_qid = fetch_wikidata_qid(wikipedia_url)
-            if wikidata_qid:
-                with db.get_connection() as conn:
-                    conn.execute(
-                        """
-                        UPDATE inaturalist_taxa
-                        SET wikidata_qid = ?
-                        WHERE taxon_id = ?
-                    """,
-                        (wikidata_qid, taxon_id),
-                    )
-                logger.info(
-                    "wikidata_qid_stored",
-                    extra={"taxon_id": taxon_id, "qid": wikidata_qid},
-                )
-        except Exception as e:
-            logger.error(
-                "wikidata_qid_fetch_error",
-                extra={"taxon_id": taxon_id, "error": str(e)},
-            )
-            return
+        wikidata_qid = wikidata_row["identifier"] if wikidata_row else None
 
     if not wikidata_qid:
         return
@@ -246,6 +223,7 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
 
             if page_data:
                 with db.get_connection() as conn:
+                    # Store in wikipedia_pages table (for extracts)
                     conn.execute(
                         """
                         INSERT INTO wikipedia_pages
@@ -267,6 +245,19 @@ def fetch_and_store_wikipedia_pages(taxon_id: int):
                             page_data["extract"],
                         ),
                     )
+
+                    # Also store Wikipedia URL in external_identifiers
+                    if page_data["url"]:
+                        conn.execute(
+                            """
+                            INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
+                            VALUES (?, 'wikipedia', ?, ?, CURRENT_TIMESTAMP)
+                            ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
+                                identifier = excluded.identifier,
+                                fetched_at = CURRENT_TIMESTAMP
+                        """,
+                            (taxon_id, page_data["url"], language),
+                        )
 
                 logger.info(
                     "wikipedia_page_stored",

@@ -46,8 +46,156 @@
                 {% endif %}
             </div>
             {% endif %}
+
+            <div class="mt-6 border-t border-gray-200 pt-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">{{ _('External Resources') }}</h2>
+                {% if external_identifiers %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% for source, identifier, language_code in external_identifiers %}
+                    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors group">
+                        <a href="{{ build_external_url(source, identifier, language_code) }}"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="flex items-center flex-1">
+                            <i class="bi {{ get_source_icon(source) }} text-xl text-gray-600 mr-3"></i>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">
+                                    {{ get_source_label(source, language_code) }}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    {{ get_source_description(source) }}
+                                </div>
+                            </div>
+                        </a>
+                        <div class="flex items-center gap-2">
+                            <a href="{{ build_external_url(source, identifier, language_code) }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="text-gray-400 group-hover:text-gray-600">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            {% if source != 'inaturalist' %}
+                            <form action="{{ url_for('delete_external_identifier', taxon_id=species.taxon_id) }}" method="POST" class="inline" onsubmit="return confirm('{{ _('Delete this external resource?') }}');">
+                                <input type="hidden" name="source" value="{{ source }}">
+                                <input type="hidden" name="language_code" value="{{ language_code or '' }}">
+                                <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors" title="{{ _('Delete') }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 mb-3">{{ _('No external resources linked yet.') }}</p>
+                {% endif %}
+
+                <!-- Button to open Add External Resource modal -->
+                <div class="mt-4">
+                    <button onclick="openAddResourceModal()"
+                            class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="bi bi-plus-circle mr-2"></i>{{ _('Add External Resource') }}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Add External Resource Modal -->
+    <div id="add-resource-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="closeAddResourceModal()">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">{{ _('Add External Resource') }}</h3>
+                <button onclick="closeAddResourceModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="bi bi-x-lg text-xl"></i>
+                </button>
+            </div>
+            <form action="{{ url_for('add_external_identifier', taxon_id=species.taxon_id) }}" method="POST" class="px-6 py-4">
+                <div class="mb-4">
+                    <label for="source" class="block text-sm font-medium text-gray-700 mb-2">{{ _('Source') }}</label>
+                    <div class="flex gap-3">
+                        <select id="source" name="source" required class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                            <option value="">{{ _('Select source...') }}</option>
+                            <option value="ebird">eBird</option>
+                            <option value="wikipedia">Wikipedia</option>
+                            <option value="wikidata">Wikidata</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="identifier" class="block text-sm font-medium text-gray-700 mb-2">{{ _('URL or Identifier') }}</label>
+                    <div class="flex gap-3">
+                        <input type="text" id="identifier" name="identifier" required placeholder="https://ebird.org/species/gretit1 or gretit1" class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        {{ _('Paste full URL or just the identifier') }}
+                    </p>
+                </div>
+                <div id="language-selector" class="hidden mb-4">
+                    <label for="language_code" class="block text-sm font-medium text-gray-700 mb-2">{{ _('Language') }}</label>
+                    <div class="flex gap-3">
+                        <select id="language_code" name="language_code" class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                            <option value="">{{ _('Select language...') }}</option>
+                            <option value="en">English</option>
+                            <option value="de">Deutsch</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeAddResourceModal()" class="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        {{ _('Cancel') }}
+                    </button>
+                    <button type="submit" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="bi bi-plus-circle mr-2"></i>{{ _('Add Resource') }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openAddResourceModal() {
+        const modal = document.getElementById('add-resource-modal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeAddResourceModal() {
+        const modal = document.getElementById('add-resource-modal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+        // Reset the form
+        document.getElementById('source').value = '';
+        document.getElementById('identifier').value = '';
+        document.getElementById('language_code').value = '';
+        document.getElementById('language-selector').classList.add('hidden');
+    }
+
+    // Show language selector only for Wikipedia
+    document.getElementById('source').addEventListener('change', function() {
+        const languageSelector = document.getElementById('language-selector');
+        const languageField = document.getElementById('language_code');
+
+        if (this.value === 'wikipedia') {
+            languageSelector.classList.remove('hidden');
+            languageField.required = true;
+        } else {
+            languageSelector.classList.add('hidden');
+            languageField.required = false;
+        }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const modal = document.getElementById('add-resource-modal');
+            if (!modal.classList.contains('hidden')) {
+                closeAddResourceModal();
+            }
+        }
+    });
+    </script>
 
     <!-- Recent Photos Gallery -->
     {% if recent_crops %}

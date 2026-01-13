@@ -7,12 +7,61 @@ from typing import Optional, Dict
 from . import database as db
 from .constants import SPECIES_IMAGES_DIR
 from .utils import retry_on_failure
+from .wikipedia import fetch_wikidata_qid
 
 logger = logging.getLogger(__name__)
 
 INATURALIST_API_BASE = "https://api.inaturalist.org/v1"
 REQUEST_TIMEOUT = 10
 RATE_LIMIT_DELAY = 0.5
+
+
+def _store_taxon_external_identifiers(taxon_id: int, wikipedia_url: str | None) -> None:
+    """Store iNaturalist and Wikidata identifiers for a taxon.
+
+    Args:
+        taxon_id: iNaturalist taxon ID
+        wikipedia_url: Optional Wikipedia URL to extract Wikidata QID from
+    """
+    # Store iNaturalist identifier
+    with db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
+            VALUES (?, 'inaturalist', ?, NULL, CURRENT_TIMESTAMP)
+            ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
+                identifier = excluded.identifier,
+                fetched_at = CURRENT_TIMESTAMP
+        """,
+            (taxon_id, str(taxon_id)),
+        )
+
+    # Extract and store wikidata_qid from wikipedia_url if available
+    if wikipedia_url:
+        try:
+            time.sleep(RATE_LIMIT_DELAY)
+            wikidata_qid = fetch_wikidata_qid(wikipedia_url)
+            if wikidata_qid:
+                with db.get_connection() as conn:
+                    conn.execute(
+                        """
+                        INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
+                        VALUES (?, 'wikidata', ?, NULL, CURRENT_TIMESTAMP)
+                        ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
+                            identifier = excluded.identifier,
+                            fetched_at = CURRENT_TIMESTAMP
+                    """,
+                        (taxon_id, wikidata_qid),
+                    )
+                logger.info(
+                    "wikidata_qid_stored",
+                    extra={"taxon_id": taxon_id, "qid": wikidata_qid},
+                )
+        except Exception as e:
+            logger.warning(
+                "wikidata_qid_fetch_failed",
+                extra={"taxon_id": taxon_id, "error": str(e)},
+            )
 
 
 def normalize_species_name(name: str) -> str:
@@ -249,18 +298,16 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
 
         taxon_id = api_data["taxon_id"]
 
-        # Insert into database
+        # Insert into database (without wikipedia_url and wikidata_qid - now in external_identifiers)
         with db.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO inaturalist_taxa
-                (taxon_id, scientific_name, common_name_en, common_name_de,
-                 wikipedia_url, fetched_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (taxon_id, scientific_name, common_name_en, common_name_de, fetched_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(taxon_id) DO UPDATE SET
                     common_name_en = excluded.common_name_en,
                     common_name_de = excluded.common_name_de,
-                    wikipedia_url = excluded.wikipedia_url,
                     fetched_at = CURRENT_TIMESTAMP
             """,
                 (
@@ -268,9 +315,11 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
                     api_data["scientific_name"],
                     api_data["common_name_en"],
                     api_data["common_name_de"],
-                    api_data["wikipedia_url"],
                 ),
             )
+
+        # Store external identifiers (iNaturalist + Wikidata if available)
+        _store_taxon_external_identifiers(taxon_id, api_data.get("wikipedia_url"))
 
         # Download image if available
         if api_data["image_url"]:
@@ -343,19 +392,17 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
         if not api_data:
             return None
 
-        # Insert into database
+        # Insert into database (without wikipedia_url and wikidata_qid - now in external_identifiers)
         with db.get_connection() as conn:
             conn.execute(
                 """
                 INSERT INTO inaturalist_taxa
-                (taxon_id, scientific_name, common_name_en, common_name_de,
-                 wikipedia_url, fetched_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (taxon_id, scientific_name, common_name_en, common_name_de, fetched_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(taxon_id) DO UPDATE SET
                     scientific_name = excluded.scientific_name,
                     common_name_en = excluded.common_name_en,
                     common_name_de = excluded.common_name_de,
-                    wikipedia_url = excluded.wikipedia_url,
                     fetched_at = CURRENT_TIMESTAMP
             """,
                 (
@@ -363,9 +410,11 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
                     api_data["scientific_name"],
                     api_data["common_name_en"],
                     api_data["common_name_de"],
-                    api_data["wikipedia_url"],
                 ),
             )
+
+        # Store external identifiers (iNaturalist + Wikidata if available)
+        _store_taxon_external_identifiers(taxon_id, api_data.get("wikipedia_url"))
 
         # Download image if available
         if api_data["image_url"]:
