@@ -24,7 +24,12 @@ RUN mkdir -p /app/data
 
 EXPOSE 5000
 
+# Environment variables with defaults (can be overridden at runtime)
+ENV PORT=5000
+ENV GUNICORN_WORKERS=2
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD uv run python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\", \"5000\")}/')" || exit 1
 
-CMD ["uv", "run", "python", "-m", "birdhomie.app"]
+# Use gunicorn for production with config file that handles scheduler
+CMD ["uv", "run", "gunicorn", "--config", "src/birdhomie/gunicorn.conf.py", "birdhomie.app:app"]

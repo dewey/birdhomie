@@ -42,6 +42,9 @@ class Config:
     # Face annotation
     face_annotation_batch_size: int
 
+    # Gunicorn
+    gunicorn_workers: int
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment with validation."""
@@ -94,4 +97,5 @@ class Config:
             face_annotation_batch_size=int(
                 os.getenv("FACE_ANNOTATION_BATCH_SIZE", "100")
             ),
+            gunicorn_workers=int(os.getenv("GUNICORN_WORKERS", "2")),
         )

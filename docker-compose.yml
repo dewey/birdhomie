@@ -29,9 +29,11 @@ services:
       - FRAME_SKIP=5
       - FILE_RETENTION_DAYS=30
 
-      # Optional: Flask settings
+      # Optional: Flask/Gunicorn settings
       - FLASK_DEBUG=0
       - SECRET_KEY=change-me-to-a-random-string
+      - GUNICORN_WORKERS=2  # Number of web server workers
+      - PORT=5000  # Web server port
 
 volumes:
   birdhomie-data:
