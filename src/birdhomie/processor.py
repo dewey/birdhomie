@@ -122,7 +122,7 @@ class FileProcessor:
                         processed_at = CURRENT_TIMESTAMP
                     WHERE id = ?
                 """,
-                    (duration, str(output_dir), file_id),
+                    (duration, f"output/{file_id}", file_id),
                 )
 
             logger.info(

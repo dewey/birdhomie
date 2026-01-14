@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination %}
 
 {% block title %}Species - Birdhomie{% endblock %}
 
@@ -7,35 +8,43 @@
     <h1 class="text-3xl font-bold text-gray-900 mb-6">All Species</h1>
 
     {% if species %}
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul class="divide-y divide-gray-200">
-            {% for sp in species %}
-            <li>
-                <a href="/species/{{ sp.taxon_id }}" class="block hover:bg-gray-50">
-                    <div class="px-4 py-4 sm:px-6 flex items-center">
-                        {% if sp.image_path %}
-                        <img src="/data/{{ sp.image_path|data_path }}" alt="{{ sp.name }}" class="h-16 w-16 rounded-md object-cover mr-4">
-                        {% else %}
-                        <div class="h-16 w-16 bg-gray-200 rounded-md mr-4 flex items-center justify-center">
-                            <i class="bi bi-image text-gray-400"></i>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+        {% for sp in species %}
+        <a href="/species/{{ sp.taxon_id }}" class="block bg-white shadow rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+            <div class="flex">
+                {% if sp.image_path %}
+                <div class="flex-shrink-0">
+                    <img src="/data/{{ sp.image_path|data_path }}" alt="{{ sp.name }}" class="h-48 w-48 object-cover">
+                </div>
+                {% else %}
+                <div class="flex-shrink-0 h-48 w-48 bg-gray-200 flex items-center justify-center">
+                    <i class="bi bi-image text-gray-400 text-4xl"></i>
+                </div>
+                {% endif %}
+                <div class="flex-1 p-4 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xl font-semibold text-blue-600 mb-1">{{ sp.name }}</h2>
+                        <p class="text-sm text-gray-500 italic mb-2">{{ sp.scientific_name }}</p>
+                    </div>
+                    <div>
+                        <div class="flex items-center text-sm text-gray-600 mb-1">
+                            <i class="bi bi-eye-fill mr-2 text-gray-400"></i>
+                            <span>{{ sp.visit_count }} visits</span>
+                        </div>
+                        {% if sp.last_seen %}
+                        <div class="flex items-center text-sm text-gray-500">
+                            <i class="bi bi-clock mr-2 text-gray-400"></i>
+                            <span>Last seen: {{ sp.last_seen|format_time_ago }}</span>
                         </div>
                         {% endif %}
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <p class="text-lg font-medium text-blue-600">{{ sp.name }}</p>
-                                <p class="text-sm text-gray-500">{{ sp.visit_count }} visits</p>
-                            </div>
-                            <p class="text-sm text-gray-500 italic">{{ sp.scientific_name }}</p>
-                            {% if sp.last_seen %}
-                            <p class="text-xs text-gray-400 mt-1">Last seen: {{ sp.last_seen|format_time_ago }}</p>
-                            {% endif %}
-                        </div>
                     </div>
-                </a>
-            </li>
-            {% endfor %}
-        </ul>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
     </div>
+
+    {{ pagination(page, total_pages, '/species') }}
     {% else %}
     <div class="text-center py-12">
         <i class="bi bi-search text-gray-400 text-6xl mb-4"></i>

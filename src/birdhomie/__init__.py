@@ -34,7 +34,7 @@ def _init_pytorch_backends() -> None:
     try:
         import torch
 
-        if hasattr(torch.backends, "nnpack"):
+        if hasattr(torch.backends, "nnpack") and hasattr(torch.backends.nnpack, "enabled"):
             torch.backends.nnpack.enabled = False
     except ImportError:
         pass
@@ -78,10 +78,12 @@ def configure_pytorch(logger=None, num_threads: int = 2) -> dict:
     # Check if NNPACK should be disabled via environment variable
     # Useful for CPUs without AVX2/FMA (e.g., Intel pre-Haswell, AMD pre-Excavator)
     nnpack_enabled = True
-    if hasattr(torch.backends, "nnpack"):
+    if hasattr(torch.backends, "nnpack") and hasattr(torch.backends.nnpack, "enabled"):
         if os.environ.get("NNPACK_DISABLE") == "1":
             torch.backends.nnpack.enabled = False
         nnpack_enabled = torch.backends.nnpack.enabled
+    elif os.environ.get("NNPACK_DISABLE") == "1":
+        nnpack_enabled = False
 
     status = {
         "num_threads": num_threads,

@@ -21,22 +21,24 @@ from flask_babel import Babel, _
 from markupsafe import Markup
 from PIL import Image
 from .config import Config
-from .constants import LOGS_DIR, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, DATA_DIR
+from .constants import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, DATA_DIR
 from . import database as db
 
 
 # Setup logging
 def setup_logging():
-    """Configure structured logging for the application."""
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    """Configure structured logging for the application.
 
+    Logs to stdout only (12-factor app pattern for containers).
+    Docker/container runtimes handle log collection and rotation.
+    """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(LOGS_DIR / "birdhomie.log"),
             logging.StreamHandler(),
         ],
+        force=True,  # Override any existing config
     )
 
 
@@ -313,6 +315,8 @@ def before_request():
 def dashboard():
     """Main dashboard."""
     period = request.args.get("period", "month")
+    page = request.args.get("page", 1, type=int)
+    per_page = 9  # 3 rows × 3 columns on large screens
 
     # Calculate date range
     if period == "week":
@@ -323,6 +327,20 @@ def dashboard():
         date_filter = "DATE('now', '-1 day')"
 
     with db.get_connection() as conn:
+        # Get total species count for pagination
+        total = conn.execute(f"""
+            SELECT COUNT(DISTINCT t.taxon_id) as count
+            FROM visits v
+            JOIN files f ON v.file_id = f.id
+            JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
+            WHERE f.event_start >= {date_filter}
+                AND v.deleted_at IS NULL
+        """).fetchone()["count"]
+
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+        page = max(1, min(page, total_pages))
+        offset = (page - 1) * per_page
+
         species = conn.execute(f"""
             SELECT
                 t.taxon_id,
@@ -339,7 +357,8 @@ def dashboard():
                 AND v.deleted_at IS NULL
             GROUP BY t.taxon_id
             ORDER BY visit_count DESC
-        """).fetchall()
+            LIMIT ? OFFSET ?
+        """, (per_page, offset)).fetchall()
 
         stats = conn.execute(f"""
             SELECT
@@ -457,6 +476,8 @@ def dashboard():
         period=period,
         stats=stats,
         streak_data=streak_data,
+        page=page,
+        total_pages=total_pages,
     )
 
 
@@ -495,8 +516,28 @@ def hourly_activity():
 
 @app.route("/species")
 def species_list():
-    """List all species."""
+    """List all species with pagination."""
+    page = request.args.get("page", 1, type=int)
+    per_page = 10
+
     with db.get_connection() as conn:
+        # Get total count for pagination
+        total = conn.execute("""
+            SELECT COUNT(*) as count FROM (
+                SELECT t.taxon_id
+                FROM inaturalist_taxa t
+                LEFT JOIN visits v ON t.taxon_id IN (v.inaturalist_taxon_id, v.override_taxon_id) AND v.deleted_at IS NULL
+                GROUP BY t.taxon_id
+                HAVING COUNT(DISTINCT v.id) > 0
+            )
+        """).fetchone()["count"]
+
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+
+        # Ensure page is within bounds
+        page = max(1, min(page, total_pages))
+        offset = (page - 1) * per_page
+
         species = conn.execute(f"""
             SELECT
                 t.taxon_id,
@@ -512,9 +553,15 @@ def species_list():
             GROUP BY t.taxon_id
             HAVING visit_count > 0
             ORDER BY visit_count DESC
-        """).fetchall()
+            LIMIT ? OFFSET ?
+        """, (per_page, offset)).fetchall()
 
-    return render_template("species_list.html", species=species)
+    return render_template(
+        "species_list.html",
+        species=species,
+        page=page,
+        total_pages=total_pages,
+    )
 
 
 @app.route("/species/<int:taxon_id>")
@@ -835,7 +882,6 @@ def visit_detail(visit_id):
                 t.common_name_de,
                 f.id as file_id,
                 f.file_path,
-                f.output_dir,
                 f.event_start,
                 f.duration_seconds,
                 f.status as file_status
@@ -896,11 +942,8 @@ def visit_detail(visit_id):
         file_status = visit["file_status"]
 
         if is_video and file_status == "success":
-            output_dir = visit["output_dir"].replace(str(DATA_DIR) + "/", "")
-            annotated_path = f"{output_dir}/annotated.mp4"
-            annotated_full_path = (
-                DATA_DIR / "output" / str(visit["file_id"]) / "annotated.mp4"
-            )
+            annotated_path = f"output/{visit['file_id']}/annotated.mp4"
+            annotated_full_path = DATA_DIR / annotated_path
             video_available = annotated_full_path.exists()
 
     return render_template(
@@ -972,14 +1015,45 @@ def correct_visit_species(visit_id):
 
 @app.route("/files")
 def files_list():
-    """List all files."""
+    """List all files with pagination."""
+    page = request.args.get("page", 1, type=int)
+    per_page = 100
+
     with db.get_connection() as conn:
+        # Get status counts for pie chart
+        status_counts = conn.execute("""
+            SELECT
+                COALESCE(status, 'pending') as status,
+                COUNT(*) as count
+            FROM files
+            GROUP BY status
+        """).fetchall()
+
+        status_dict = {}
+        for row in status_counts:
+            status_dict[row["status"]] = row["count"]
+
+        # Get total count for pagination
+        total = conn.execute("SELECT COUNT(*) as count FROM files").fetchone()["count"]
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+
+        # Ensure page is within bounds
+        page = max(1, min(page, total_pages))
+        offset = (page - 1) * per_page
+
         files = conn.execute("""
             SELECT * FROM files
             ORDER BY event_start DESC
-        """).fetchall()
+            LIMIT ? OFFSET ?
+        """, (per_page, offset)).fetchall()
 
-    return render_template("files_list.html", files=files)
+    return render_template(
+        "files_list.html",
+        files=files,
+        status_counts=status_dict,
+        page=page,
+        total_pages=total_pages,
+    )
 
 
 @app.route("/api/visits/<int:visit_id>/set-cover/<int:detection_id>", methods=["POST"])
@@ -1026,7 +1100,6 @@ def file_detail(file_id):
                 file_path,
                 event_start,
                 duration_seconds,
-                output_dir,
                 status,
                 duplicate_of_file_id
             FROM files
@@ -1103,9 +1176,8 @@ def file_detail(file_id):
         file_status = file["status"]
 
         if is_video and file_status == "success":
-            output_dir = file["output_dir"].replace(str(DATA_DIR) + "/", "")
-            annotated_path = f"{output_dir}/annotated.mp4"
-            annotated_full_path = DATA_DIR / "output" / str(file_id) / "annotated.mp4"
+            annotated_path = f"output/{file_id}/annotated.mp4"
+            annotated_full_path = DATA_DIR / annotated_path
             video_available = annotated_full_path.exists()
 
     return render_template(
@@ -1200,14 +1272,37 @@ def merge_file(file_id):
 @app.route("/data/<path:filename>")
 def serve_data(filename):
     """Serve files from data directory."""
-    data_dir = Path(__file__).parent.parent.parent / "data"
-    return send_from_directory(data_dir, filename)
+    return send_from_directory(DATA_DIR, filename)
 
 
 @app.route("/tasks")
 def tasks_list():
-    """List all task runs."""
+    """List all task runs with pagination."""
+    page = request.args.get("page", 1, type=int)
+    per_page = 100
+
     with db.get_connection() as conn:
+        # Get status counts for pie chart
+        status_counts = conn.execute("""
+            SELECT
+                status,
+                COUNT(*) as count
+            FROM task_runs
+            GROUP BY status
+        """).fetchall()
+
+        status_dict = {}
+        for row in status_counts:
+            status_dict[row["status"]] = row["count"]
+
+        # Get total count for pagination
+        total = conn.execute("SELECT COUNT(*) as count FROM task_runs").fetchone()["count"]
+        total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+
+        # Ensure page is within bounds
+        page = max(1, min(page, total_pages))
+        offset = (page - 1) * per_page
+
         # Get all recent tasks, showing running tasks first
         # Format timestamps as ISO 8601 with 'Z' suffix to indicate UTC
         tasks = conn.execute("""
@@ -1230,8 +1325,8 @@ def tasks_list():
                     ELSE 1
                 END,
                 COALESCE(completed_at, started_at) DESC
-            LIMIT 100
-        """).fetchall()
+            LIMIT ? OFFSET ?
+        """, (per_page, offset)).fetchall()
 
     # Pass scheduler configuration
     schedule_info = {
@@ -1240,7 +1335,14 @@ def tasks_list():
         "face_annotation_interval": 10,  # Hardcoded in scheduler
     }
 
-    return render_template("tasks_list.html", tasks=tasks, schedule=schedule_info)
+    return render_template(
+        "tasks_list.html",
+        tasks=tasks,
+        schedule=schedule_info,
+        status_counts=status_dict,
+        page=page,
+        total_pages=total_pages,
+    )
 
 
 @app.route("/tasks/api")
@@ -1324,10 +1426,12 @@ def trigger_task(task_type):
 @app.route("/settings")
 def settings():
     """Settings page."""
+    import os
+
     settings_data = {
         "unifi": {
             "address": config.ufp_address,
-            "camera_id": config.ufp_camera_id[:10] + "...",
+            "camera_id": config.ufp_camera_id,
             "detection_types": config.ufp_detection_types,
             "download_interval": config.ufp_download_interval_minutes,
             "ssl_verify": config.ufp_ssl_verify,
@@ -1349,6 +1453,9 @@ def settings():
             "type": "SQLite with WAL mode",
             "path": "data/birdhomie.db",
             "size": db.get_db_size(),
+        },
+        "hardware": {
+            "nnpack_disable": os.environ.get("NNPACK_DISABLE", "0") == "1",
         },
     }
 

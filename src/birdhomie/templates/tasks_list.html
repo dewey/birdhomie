@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination, status_overview %}
 
 {% block title %}Tasks - Birdhomie{% endblock %}
 
@@ -72,6 +73,10 @@
         </div>
     </div>
 
+    {% if status_counts %}
+    {{ status_overview(status_counts, 'tasksChart', ['#10B981', '#3B82F6', '#EF4444', '#6B7280']) }}
+    {% endif %}
+
     <div class="mb-6 text-sm text-gray-600">
         <span class="font-medium">Schedule:</span>
         UniFi Download every {{ schedule.unifi_download_interval }}m,
@@ -144,6 +149,8 @@
             {% endfor %}
         </ul>
     </div>
+
+    {{ pagination(page, total_pages, '/tasks') }}
     {% else %}
     <div class="text-center py-12 bg-white rounded-lg">
         <i class="bi bi-clock-history text-gray-400 text-6xl mb-4"></i>
@@ -428,5 +435,38 @@ startAutoRefresh();
 
 // Stop auto-refresh when user is about to leave
 window.addEventListener('beforeunload', stopAutoRefresh);
+
+{% if status_counts %}
+// Initialize pie chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('tasksChart').getContext('2d');
+    const statusCounts = {{ status_counts | tojson }};
+    const labels = Object.keys(statusCounts).map(s => s.charAt(0).toUpperCase() + s.slice(1));
+    const data = Object.values(statusCounts);
+    const colors = ['#10B981', '#3B82F6', '#EF4444', '#6B7280'];
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, data.length),
+                borderWidth: 1,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+});
+{% endif %}
 </script>
 {% endblock %}

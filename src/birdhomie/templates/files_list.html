@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% from "macros.html" import pagination, status_overview %}
 
 {% block title %}Files - Birdhomie{% endblock %}
 
 {% block content %}
 <div class="px-4 py-6 sm:px-0">
     <h1 class="text-3xl font-bold text-gray-900 mb-6">Video Files</h1>
+
+    {% if status_counts %}
+    {{ status_overview(status_counts, 'filesChart', ['#10B981', '#F59E0B', '#EF4444', '#6B7280', '#3B82F6']) }}
+    {% endif %}
 
     {% if files %}
     <div class="bg-white shadow overflow-hidden sm:rounded-md">
@@ -34,7 +39,7 @@
                                 <i class="bi bi-eye-slash mr-1"></i> Ignored (Merged)
                             </span>
                             {% if file.duplicate_of_file_id %}
-                            <span class="text-xs text-gray-500">→ File #{{ file.duplicate_of_file_id }}</span>
+                            <span class="text-xs text-gray-500">&rarr; File #{{ file.duplicate_of_file_id }}</span>
                             {% endif %}
                             {% elif file.status == 'success' %}
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -63,6 +68,8 @@
             {% endfor %}
         </ul>
     </div>
+
+    {{ pagination(page, total_pages, '/files') }}
     {% else %}
     <div class="text-center py-12">
         <i class="bi bi-film text-gray-400 text-6xl mb-4"></i>
@@ -70,4 +77,38 @@
     </div>
     {% endif %}
 </div>
+
+{% if status_counts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('filesChart').getContext('2d');
+    const statusCounts = {{ status_counts | tojson }};
+    const labels = Object.keys(statusCounts).map(s => s.charAt(0).toUpperCase() + s.slice(1));
+    const data = Object.values(statusCounts);
+    const colors = ['#10B981', '#F59E0B', '#EF4444', '#6B7280', '#3B82F6'];
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, data.length),
+                borderWidth: 1,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
 {% endblock %}
