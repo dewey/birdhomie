@@ -1,15 +1,9 @@
 """Birdhomie - Bird detection and classification system for UniFi Protect."""
 
 import os
-import warnings
 from pathlib import Path
 
 __version__ = "0.1.0"
-
-# Suppress NNPACK warnings on hardware that doesn't support it.
-# PyTorch automatically falls back to other backends when NNPACK isn't available.
-# The actual availability is logged once at startup via configure_pytorch().
-warnings.filterwarnings("ignore", message=".*NNPACK.*")
 
 # Configure model cache directories to use data/models
 # This must be set before importing torch, transformers, or open_clip
@@ -27,6 +21,29 @@ os.environ.setdefault("HF_HUB_CACHE", str(_MODELS_DIR / "huggingface" / "hub"))
 os.environ.setdefault("TORCH_HOME", str(_MODELS_DIR / "torch"))
 
 
+def _init_pytorch_backends() -> None:
+    """
+    Initialize PyTorch backends at module load time.
+
+    This runs before any model loading to ensure NNPACK is disabled
+    (if requested) before PyTorch tries to use it.
+    """
+    if os.environ.get("NNPACK_DISABLE") != "1":
+        return
+
+    try:
+        import torch
+
+        if hasattr(torch.backends, "nnpack"):
+            torch.backends.nnpack.enabled = False
+    except ImportError:
+        pass
+
+
+# Initialize PyTorch backends early to disable NNPACK before model loading
+_init_pytorch_backends()
+
+
 def configure_pytorch(logger=None, num_threads: int = 2) -> dict:
     """
     Configure PyTorch for optimal CPU inference.
@@ -36,12 +53,9 @@ def configure_pytorch(logger=None, num_threads: int = 2) -> dict:
     - Optionally disables NNPACK backend via NNPACK_DISABLE env var
     - Sets inter-op parallelism for efficient CPU usage
 
-    NNPACK warnings are suppressed globally at module load time.
-
     Environment variables:
-        NNPACK_DISABLE: Set to "1" to disable NNPACK backend. Use this on CPUs
-            without AVX2/FMA support (pre-2013 Intel, pre-2015 AMD) to prevent
-            repeated initialization attempts that cause high CPU usage.
+        NNPACK_DISABLE: Set to "1" to disable NNPACK backend. Use on CPUs without
+            AVX2/FMA (pre-2013 Intel, pre-2015 AMD) to prevent high CPU usage.
 
     Args:
         logger: Optional logger instance. If None, prints to stdout.
@@ -63,15 +77,9 @@ def configure_pytorch(logger=None, num_threads: int = 2) -> dict:
 
     # Check if NNPACK should be disabled via environment variable
     # Useful for CPUs without AVX2/FMA (e.g., Intel pre-Haswell, AMD pre-Excavator)
-    nnpack_disable = os.environ.get("NNPACK_DISABLE", "").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
     nnpack_enabled = True
-
     if hasattr(torch.backends, "nnpack"):
-        if nnpack_disable:
+        if os.environ.get("NNPACK_DISABLE") == "1":
             torch.backends.nnpack.enabled = False
         nnpack_enabled = torch.backends.nnpack.enabled
 
