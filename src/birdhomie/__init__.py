@@ -31,8 +31,17 @@ def configure_pytorch(logger=None, num_threads: int = 2) -> dict:
     """
     Configure PyTorch for optimal CPU inference.
 
-    This function limits thread count to prevent CPU contention in containers.
+    This function:
+    - Limits thread count to prevent CPU contention in containers
+    - Optionally disables NNPACK backend via NNPACK_DISABLE env var
+    - Sets inter-op parallelism for efficient CPU usage
+
     NNPACK warnings are suppressed globally at module load time.
+
+    Environment variables:
+        NNPACK_DISABLE: Set to "1" to disable NNPACK backend. Use this on CPUs
+            without AVX2/FMA support (pre-2013 Intel, pre-2015 AMD) to prevent
+            repeated initialization attempts that cause high CPU usage.
 
     Args:
         logger: Optional logger instance. If None, prints to stdout.
@@ -41,17 +50,40 @@ def configure_pytorch(logger=None, num_threads: int = 2) -> dict:
     Returns:
         dict with configuration status:
         - num_threads: int
+        - interop_threads: int
+        - nnpack_enabled: bool
     """
     import torch
 
-    # Limit threads to prevent over-subscription in containers
+    # Limit intra-op threads (within a single operation)
     torch.set_num_threads(num_threads)
 
-    status = {"num_threads": num_threads}
+    # Limit inter-op threads (parallel operations)
+    torch.set_num_interop_threads(1)
+
+    # Check if NNPACK should be disabled via environment variable
+    # Useful for CPUs without AVX2/FMA (e.g., Intel pre-Haswell, AMD pre-Excavator)
+    nnpack_disable = os.environ.get("NNPACK_DISABLE", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    nnpack_enabled = True
+
+    if hasattr(torch.backends, "nnpack"):
+        if nnpack_disable:
+            torch.backends.nnpack.enabled = False
+        nnpack_enabled = torch.backends.nnpack.enabled
+
+    status = {
+        "num_threads": num_threads,
+        "interop_threads": 1,
+        "nnpack_enabled": nnpack_enabled,
+    }
 
     if logger:
         logger.info("pytorch_configured", extra=status)
     else:
-        print(f"PyTorch configured: using {num_threads} threads")
+        print(f"PyTorch configured: {num_threads} threads, nnpack={nnpack_enabled}")
 
     return status
