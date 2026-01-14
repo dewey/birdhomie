@@ -82,10 +82,23 @@ def run_migrations(db_path: str = None, migrations_dir: str = None):
         [f for f in Path(migrations_dir).glob("*.sql") if "rollback" not in f.name]
     )
 
+    logger.info(
+        "migrations_check",
+        extra={
+            "total_migrations": len(migration_files),
+            "already_applied": len(applied),
+            "applied_versions": sorted(applied),
+        },
+    )
+
+    applied_count = 0
     for migration_file in migration_files:
         version = int(migration_file.name.split("_")[0])
         if version not in applied:
-            logger.info("applying_migration", extra={"file": migration_file.name})
+            logger.info(
+                "applying_migration",
+                extra={"file": migration_file.name, "version": version},
+            )
 
             sql = migration_file.read_text()
             checksum = hashlib.sha256(sql.encode()).hexdigest()
@@ -99,13 +112,30 @@ def run_migrations(db_path: str = None, migrations_dir: str = None):
                     (version, migration_file.name, checksum),
                 )
                 conn.commit()
-                logger.info("migration_applied", extra={"version": version})
+                applied_count += 1
+                logger.info(
+                    "migration_applied",
+                    extra={"version": version, "file": migration_file.name},
+                )
             except Exception as e:
                 conn.rollback()
                 logger.error(
-                    "migration_failed", extra={"version": version, "error": str(e)}
+                    "migration_failed",
+                    extra={
+                        "version": version,
+                        "file": migration_file.name,
+                        "error": str(e),
+                    },
                 )
                 raise
+
+    logger.info(
+        "migrations_complete",
+        extra={
+            "newly_applied": applied_count,
+            "total_applied": len(applied) + applied_count,
+        },
+    )
 
     conn.close()
 

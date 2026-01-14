@@ -198,11 +198,28 @@ class FileProcessor:
         # Process frames
         frame_idx = 0
         all_detections = []  # Store all detections for grouping
+        log_interval = max(100, total_frames // 10)  # Log every 10% or 100 frames
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
+
+            # Log progress periodically
+            if frame_idx > 0 and frame_idx % log_interval == 0:
+                progress_pct = (
+                    (frame_idx / total_frames) * 100 if total_frames > 0 else 0
+                )
+                logger.info(
+                    "video_processing_progress",
+                    extra={
+                        "file_id": file_id,
+                        "frame": frame_idx,
+                        "total_frames": total_frames,
+                        "progress_pct": f"{progress_pct:.1f}%",
+                        "detections_so_far": len(all_detections),
+                    },
+                )
 
             # Process every Nth frame
             if frame_idx % self.config.frame_skip == 0:

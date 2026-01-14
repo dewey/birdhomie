@@ -74,7 +74,7 @@
     </div>
 
     {% if status_counts %}
-    {{ status_overview(status_counts, 'tasksChart', ['#10B981', '#3B82F6', '#EF4444', '#6B7280']) }}
+    {{ status_overview(status_counts, 'tasksChart') }}
     {% endif %}
 
     <div class="mb-6 text-sm text-gray-600">
@@ -441,9 +441,21 @@ window.addEventListener('beforeunload', stopAutoRefresh);
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('tasksChart').getContext('2d');
     const statusCounts = {{ status_counts | tojson }};
+    const colorMap = {
+        'success': '#10B981',
+        'failed': '#EF4444',
+        'error': '#EF4444',
+        'running': '#3B82F6',
+        'processing': '#3B82F6',
+        'pending': '#F59E0B',
+        'queued': '#F59E0B',
+        'downloading': '#F59E0B',
+        'unknown': '#6B7280'
+    };
+    const defaultColor = '#6B7280';
     const labels = Object.keys(statusCounts).map(s => s.charAt(0).toUpperCase() + s.slice(1));
     const data = Object.values(statusCounts);
-    const colors = ['#10B981', '#3B82F6', '#EF4444', '#6B7280'];
+    const colors = Object.keys(statusCounts).map(s => colorMap[s] || defaultColor);
 
     new Chart(ctx, {
         type: 'pie',
@@ -451,7 +463,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: colors.slice(0, data.length),
+                backgroundColor: colors,
                 borderWidth: 1,
                 borderColor: '#fff'
             }]

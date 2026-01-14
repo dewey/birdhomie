@@ -31,12 +31,19 @@ def setup_logging():
     Logs to stdout only (12-factor app pattern for containers).
     Docker/container runtimes handle log collection and rotation.
     """
+    import sys
+
+    # Create handler with explicit flush on each record
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    # Flush after each log message for immediate output in containers
+    handler.flush = lambda: sys.stdout.flush()
+
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-        ],
+        handlers=[handler],
         force=True,  # Override any existing config
     )
 
@@ -953,7 +960,10 @@ def visit_detail(visit_id):
 
         # Get sibling visits if this is a split segment
         sibling_visits = []
-        if visit["parent_visit_id"]:
+        parent_visit_id = (
+            visit["parent_visit_id"] if "parent_visit_id" in visit.keys() else None
+        )
+        if parent_visit_id:
             sibling_visits = conn.execute(
                 f"""
                 SELECT
@@ -967,7 +977,7 @@ def visit_detail(visit_id):
                   AND v.deleted_at IS NULL
                 ORDER BY v.segment_start_time
             """,
-                (visit["parent_visit_id"],),
+                (parent_visit_id,),
             ).fetchall()
 
     return render_template(

@@ -74,7 +74,21 @@
 {% endmacro %}
 
 {# Status overview with pie chart #}
-{% macro status_overview(status_counts, chart_id, chart_colors) %}
+{# Color mapping: success=green, error/failed=red, running/processing=blue, pending/queued=orange, unknown=gray #}
+{% macro status_overview(status_counts, chart_id) %}
+{% set color_map = {
+    'success': '#10B981',
+    'failed': '#EF4444',
+    'error': '#EF4444',
+    'running': '#3B82F6',
+    'processing': '#3B82F6',
+    'pending': '#F59E0B',
+    'queued': '#F59E0B',
+    'downloading': '#F59E0B',
+    'ignored': '#6B7280',
+    'unknown': '#6B7280'
+} %}
+{% set default_color = '#6B7280' %}
 <div class="bg-white shadow rounded-lg mb-6">
     <div class="px-4 py-5 sm:p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Overview</h3>
@@ -88,7 +102,7 @@
                 {% for status, count in status_counts.items() %}
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
-                        <span class="w-3 h-3 rounded-full mr-2" style="background-color: {{ chart_colors[loop.index0 % chart_colors|length] }};"></span>
+                        <span class="w-3 h-3 rounded-full mr-2" style="background-color: {{ color_map.get(status, default_color) }};"></span>
                         <span class="text-sm text-gray-600 capitalize">{{ status }}</span>
                     </div>
                     <span class="text-sm font-medium text-gray-900">{{ count }}</span>
