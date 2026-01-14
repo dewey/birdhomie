@@ -1,0 +1,713 @@
+{% extends "base.html" %}
+
+{% block title %}Split Visit #{{ visit.id }} - Birdhomie{% endblock %}
+
+{% block head %}
+<style>
+    /* Segment colors */
+    .segment-color-0 { background-color: rgba(59, 130, 246, 0.4); border-color: rgb(59, 130, 246); }
+    .segment-color-1 { background-color: rgba(16, 185, 129, 0.4); border-color: rgb(16, 185, 129); }
+    .segment-color-2 { background-color: rgba(245, 158, 11, 0.4); border-color: rgb(245, 158, 11); }
+    .segment-color-3 { background-color: rgba(239, 68, 68, 0.4); border-color: rgb(239, 68, 68); }
+    .segment-color-4 { background-color: rgba(139, 92, 246, 0.4); border-color: rgb(139, 92, 246); }
+
+    /* Timeline track styling */
+    .timeline-track {
+        position: relative;
+        height: 60px;
+        background: #e5e7eb;
+        border-radius: 8px;
+        margin: 16px 0;
+        cursor: crosshair;
+    }
+
+    .timeline-segment {
+        position: absolute;
+        height: 100%;
+        border-radius: 6px;
+        border: 2px solid;
+        cursor: move;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 500;
+        color: #374151;
+        user-select: none;
+    }
+
+    .timeline-segment:hover {
+        filter: brightness(0.95);
+    }
+
+    .timeline-handle {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 12px;
+        cursor: ew-resize;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+    }
+
+    .timeline-handle:hover {
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .timeline-handle.left {
+        left: 0;
+        border-top-left-radius: 4px;
+        border-bottom-left-radius: 4px;
+    }
+
+    .timeline-handle.right {
+        right: 0;
+        border-top-right-radius: 4px;
+        border-bottom-right-radius: 4px;
+    }
+
+    .detection-marker {
+        position: absolute;
+        bottom: -8px;
+        transform: translateX(-50%);
+        font-size: 14px;
+        color: #6b7280;
+        cursor: pointer;
+    }
+
+    .detection-marker:hover {
+        color: #1f2937;
+    }
+
+    .playhead {
+        position: absolute;
+        top: -5px;
+        bottom: -5px;
+        width: 2px;
+        background: #ef4444;
+        transform: translateX(-50%);
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .playhead::before {
+        content: '';
+        position: absolute;
+        top: -3px;
+        left: -4px;
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #ef4444;
+    }
+
+    /* Time ruler */
+    .time-ruler {
+        position: relative;
+        height: 20px;
+        margin-top: 4px;
+    }
+
+    .time-tick {
+        position: absolute;
+        transform: translateX(-50%);
+        font-size: 11px;
+        color: #6b7280;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <!-- Breadcrumbs -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" class="text-gray-700 hover:text-blue-600">
+                    <i class="bi bi-house-door mr-1"></i>{{ _('Home') }}
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="bi bi-chevron-right text-gray-400 mx-2"></i>
+                    <a href="{{ url_for('visit_detail', visit_id=visit.id) }}" class="text-gray-700 hover:text-blue-600">
+                        {{ _('Visit') }} #{{ visit.id }}
+                    </a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <i class="bi bi-chevron-right text-gray-400 mx-2"></i>
+                    <span class="text-gray-500">{{ _('Split') }}</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">
+                        <i class="bi bi-scissors mr-2"></i>{{ _('Split Visit') }}
+                    </h1>
+                    <p class="text-gray-500 mt-1">
+                        {{ visit.species_name }} ({{ _('Visit') }} #{{ visit.id }})
+                    </p>
+                </div>
+                <a href="{{ url_for('visit_detail', visit_id=visit.id) }}" class="text-gray-500 hover:text-gray-700">
+                    <i class="bi bi-x-lg text-xl"></i>
+                </a>
+            </div>
+
+            <!-- Video Player -->
+            <div class="mb-6">
+                <video id="video-player" controls class="w-full max-w-4xl rounded-lg shadow-lg">
+                    <source src="/data/{{ annotated_path }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+
+            <!-- Timeline -->
+            <div class="max-w-4xl">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">{{ _('Timeline') }}</h3>
+
+                <div id="timeline-container">
+                    <div id="timeline-track" class="timeline-track">
+                        <!-- Playhead -->
+                        <div id="playhead" class="playhead" style="left: 0%;"></div>
+
+                        <!-- Segments will be rendered here -->
+
+                        <!-- Detection markers -->
+                        {% for detection in detections %}
+                        <div class="detection-marker"
+                             style="left: {{ (detection.frame_timestamp / visit.duration_seconds * 100)|round(2) }}%;"
+                             title="Detection at {{ '%.1f'|format(detection.frame_timestamp) }}s"
+                             onclick="seekToTime({{ detection.frame_timestamp }})">
+                            <i class="bi bi-caret-up-fill"></i>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Time ruler -->
+                    <div class="time-ruler" id="time-ruler">
+                        <!-- Time ticks will be rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Add Segment Button -->
+                <div class="mt-4 flex justify-end">
+                    <button onclick="addSegment()"
+                            class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <i class="bi bi-plus-circle mr-1"></i> {{ _('Add Segment') }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Segments List -->
+            <div class="mt-6 max-w-4xl">
+                <h3 class="text-sm font-medium text-gray-700 mb-3">{{ _('Segments') }}</h3>
+                <div id="segments-list" class="space-y-3">
+                    <!-- Segments will be rendered here by JS -->
+                </div>
+
+                <!-- Validation errors -->
+                <div id="validation-errors" class="hidden mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="bi bi-x-circle text-red-600 mr-3 mt-0.5"></i>
+                        <div>
+                            <p class="text-red-800 font-medium">{{ _('Please fix the following issues') }}</p>
+                            <ul id="error-list" class="text-red-700 text-sm mt-1 list-disc list-inside"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-8 max-w-4xl flex gap-3">
+                <a href="{{ url_for('visit_detail', visit_id=visit.id) }}"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    {{ _('Cancel') }}
+                </a>
+                <button id="apply-split-btn"
+                        onclick="applySplit()"
+                        disabled
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="bi bi-scissors mr-2"></i>
+                    <span id="apply-split-text">{{ _('Apply Split') }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configuration
+const videoDuration = {{ visit.duration_seconds }};
+const visitId = {{ visit.id }};
+const currentTaxonId = {{ visit.taxon_id }};
+
+// Detection data
+const detections = [
+    {% for detection in detections %}
+    {
+        id: {{ detection.id }},
+        frameNumber: {{ detection.frame_number }},
+        frameTimestamp: {{ detection.frame_timestamp }},
+        detectionConfidence: {{ detection.detection_confidence or 0 }},
+        speciesConfidence: {{ detection.species_confidence or 0 }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Species data
+const allSpecies = [
+    {% for species in all_species %}
+    {
+        taxonId: {{ species.taxon_id }},
+        name: "{{ species.name|e }}",
+        scientificName: "{{ species.scientific_name|e }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Segment colors
+const segmentColors = ['segment-color-0', 'segment-color-1', 'segment-color-2', 'segment-color-3', 'segment-color-4'];
+
+// State
+let segments = [];
+let nextSegmentId = 1;
+let dragging = null;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    initializeTimeline();
+    renderTimeRuler();
+
+    // Default: two equal 50/50 segments
+    addSegment(0, videoDuration / 2, currentTaxonId);
+    addSegment(videoDuration / 2, videoDuration, currentTaxonId);
+});
+
+function initializeTimeline() {
+    const video = document.getElementById('video-player');
+    const playhead = document.getElementById('playhead');
+    const track = document.getElementById('timeline-track');
+
+    // Update playhead on video timeupdate
+    video.addEventListener('timeupdate', function() {
+        const percent = (video.currentTime / videoDuration) * 100;
+        playhead.style.left = percent + '%';
+    });
+
+    // Click on timeline to seek
+    track.addEventListener('click', function(e) {
+        if (e.target === track || e.target.classList.contains('detection-marker')) {
+            const rect = track.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percent = x / rect.width;
+            const time = percent * videoDuration;
+            video.currentTime = time;
+        }
+    });
+}
+
+function renderTimeRuler() {
+    const ruler = document.getElementById('time-ruler');
+    ruler.innerHTML = '';
+
+    // Determine tick interval based on duration
+    let interval = 5;
+    if (videoDuration > 120) interval = 30;
+    else if (videoDuration > 60) interval = 15;
+    else if (videoDuration > 30) interval = 10;
+
+    for (let t = 0; t <= videoDuration; t += interval) {
+        const tick = document.createElement('div');
+        tick.className = 'time-tick';
+        tick.style.left = (t / videoDuration * 100) + '%';
+        tick.textContent = formatTime(t);
+        ruler.appendChild(tick);
+    }
+
+    // Always show end time
+    if (videoDuration % interval !== 0) {
+        const endTick = document.createElement('div');
+        endTick.className = 'time-tick';
+        endTick.style.left = '100%';
+        endTick.textContent = formatTime(videoDuration);
+        ruler.appendChild(endTick);
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function addSegment(startTime = null, endTime = null, taxonId = null) {
+    // Default values
+    if (startTime === null || endTime === null) {
+        // Find the first gap or add at the end
+        if (segments.length === 0) {
+            startTime = 0;
+            endTime = Math.min(videoDuration / 2, 10);
+        } else {
+            // Find gaps
+            const sorted = [...segments].sort((a, b) => a.startTime - b.startTime);
+            let found = false;
+
+            // Check gap at start
+            if (sorted[0].startTime > 0) {
+                startTime = 0;
+                endTime = sorted[0].startTime;
+                found = true;
+            }
+
+            // Check gaps between segments
+            if (!found) {
+                for (let i = 0; i < sorted.length - 1; i++) {
+                    if (sorted[i].endTime < sorted[i + 1].startTime) {
+                        startTime = sorted[i].endTime;
+                        endTime = sorted[i + 1].startTime;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            // Check gap at end
+            if (!found) {
+                const lastEnd = Math.max(...sorted.map(s => s.endTime));
+                if (lastEnd < videoDuration) {
+                    startTime = lastEnd;
+                    endTime = videoDuration;
+                    found = true;
+                }
+            }
+
+            // If no gaps, alert user
+            if (!found) {
+                alert('No gaps available. Remove or resize an existing segment first.');
+                return;
+            }
+        }
+    }
+
+    const segment = {
+        id: nextSegmentId++,
+        startTime: startTime,
+        endTime: endTime,
+        taxonId: taxonId || currentTaxonId
+    };
+
+    segments.push(segment);
+    renderSegments();
+    validate();
+}
+
+function removeSegment(segmentId) {
+    segments = segments.filter(s => s.id !== segmentId);
+    renderSegments();
+    validate();
+}
+
+function updateSegmentTaxon(segmentId, taxonId) {
+    const segment = segments.find(s => s.id === segmentId);
+    if (segment) {
+        segment.taxonId = parseInt(taxonId);
+        validate();
+    }
+}
+
+function updateSegmentTime(segmentId, field, value) {
+    const segment = segments.find(s => s.id === segmentId);
+    if (segment) {
+        const floatValue = parseFloat(value);
+        if (!isNaN(floatValue)) {
+            segment[field] = Math.max(0, Math.min(floatValue, videoDuration));
+            renderSegments();
+            validate();
+        }
+    }
+}
+
+function renderSegments() {
+    const track = document.getElementById('timeline-track');
+    const list = document.getElementById('segments-list');
+
+    // Clear existing segments from track (keep playhead and detection markers)
+    track.querySelectorAll('.timeline-segment').forEach(el => el.remove());
+
+    // Clear list
+    list.innerHTML = '';
+
+    segments.forEach((segment, index) => {
+        const colorClass = segmentColors[index % segmentColors.length];
+
+        // Render timeline segment
+        const segEl = document.createElement('div');
+        segEl.className = `timeline-segment ${colorClass}`;
+        segEl.dataset.segmentId = segment.id;
+
+        const leftPercent = (segment.startTime / videoDuration) * 100;
+        const widthPercent = ((segment.endTime - segment.startTime) / videoDuration) * 100;
+
+        segEl.style.left = leftPercent + '%';
+        segEl.style.width = widthPercent + '%';
+
+        // Segment label
+        const species = allSpecies.find(s => s.taxonId === segment.taxonId);
+        segEl.textContent = species ? species.name.substring(0, 15) : 'Unknown';
+
+        // Add resize handles
+        const leftHandle = document.createElement('div');
+        leftHandle.className = 'timeline-handle left';
+        leftHandle.addEventListener('mousedown', (e) => startDrag(e, segment.id, 'left'));
+
+        const rightHandle = document.createElement('div');
+        rightHandle.className = 'timeline-handle right';
+        rightHandle.addEventListener('mousedown', (e) => startDrag(e, segment.id, 'right'));
+
+        segEl.appendChild(leftHandle);
+        segEl.appendChild(rightHandle);
+
+        // Make segment draggable
+        segEl.addEventListener('mousedown', (e) => {
+            if (!e.target.classList.contains('timeline-handle')) {
+                startDrag(e, segment.id, 'move');
+            }
+        });
+
+        track.appendChild(segEl);
+
+        // Render list item
+        const listItem = document.createElement('div');
+        listItem.className = `p-4 rounded-lg border-2 ${colorClass}`;
+        listItem.innerHTML = `
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="flex-1 min-w-[200px]">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Species</label>
+                    <select onchange="updateSegmentTaxon(${segment.id}, this.value)"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                        ${allSpecies.map(s => `
+                            <option value="${s.taxonId}" ${s.taxonId === segment.taxonId ? 'selected' : ''}>
+                                ${s.name}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div class="w-24">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Start (s)</label>
+                    <input type="number" step="0.1" min="0" max="${videoDuration}"
+                           value="${segment.startTime.toFixed(1)}"
+                           onchange="updateSegmentTime(${segment.id}, 'startTime', this.value)"
+                           class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="w-24">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">End (s)</label>
+                    <input type="number" step="0.1" min="0" max="${videoDuration}"
+                           value="${segment.endTime.toFixed(1)}"
+                           onchange="updateSegmentTime(${segment.id}, 'endTime', this.value)"
+                           class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <button onclick="removeSegment(${segment.id})"
+                        class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md"
+                        title="Remove segment">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        list.appendChild(listItem);
+    });
+}
+
+function startDrag(e, segmentId, type) {
+    e.preventDefault();
+    const track = document.getElementById('timeline-track');
+    const rect = track.getBoundingClientRect();
+    const segment = segments.find(s => s.id === segmentId);
+
+    dragging = {
+        segmentId,
+        type,
+        startX: e.clientX,
+        trackRect: rect,
+        originalStart: segment.startTime,
+        originalEnd: segment.endTime
+    };
+
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', stopDrag);
+}
+
+function onDrag(e) {
+    if (!dragging) return;
+
+    const segment = segments.find(s => s.id === dragging.segmentId);
+    if (!segment) return;
+
+    const deltaX = e.clientX - dragging.startX;
+    const deltaTime = (deltaX / dragging.trackRect.width) * videoDuration;
+
+    if (dragging.type === 'left') {
+        segment.startTime = Math.max(0, Math.min(dragging.originalStart + deltaTime, segment.endTime - 0.5));
+    } else if (dragging.type === 'right') {
+        segment.endTime = Math.max(segment.startTime + 0.5, Math.min(dragging.originalEnd + deltaTime, videoDuration));
+    } else if (dragging.type === 'move') {
+        const duration = dragging.originalEnd - dragging.originalStart;
+        let newStart = dragging.originalStart + deltaTime;
+        let newEnd = newStart + duration;
+
+        // Clamp to bounds
+        if (newStart < 0) {
+            newStart = 0;
+            newEnd = duration;
+        }
+        if (newEnd > videoDuration) {
+            newEnd = videoDuration;
+            newStart = videoDuration - duration;
+        }
+
+        segment.startTime = newStart;
+        segment.endTime = newEnd;
+    }
+
+    renderSegments();
+    validate();
+}
+
+function stopDrag() {
+    dragging = null;
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', stopDrag);
+}
+
+function seekToTime(time) {
+    const video = document.getElementById('video-player');
+    video.currentTime = time;
+}
+
+function validate() {
+    const errors = [];
+    const btn = document.getElementById('apply-split-btn');
+    const errorContainer = document.getElementById('validation-errors');
+    const errorList = document.getElementById('error-list');
+
+    // Need at least 2 segments
+    if (segments.length < 2) {
+        errors.push('At least 2 segments are required');
+    }
+
+    // Check each segment
+    segments.forEach((seg, i) => {
+        if (seg.startTime >= seg.endTime) {
+            errors.push(`Segment ${i + 1}: Start time must be less than end time`);
+        }
+        if (!seg.taxonId) {
+            errors.push(`Segment ${i + 1}: Please select a species`);
+        }
+    });
+
+    // Check for overlaps
+    const sorted = [...segments].sort((a, b) => a.startTime - b.startTime);
+    for (let i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i].endTime > sorted[i + 1].startTime) {
+            errors.push(`Segments ${i + 1} and ${i + 2} overlap`);
+        }
+    }
+
+    // Update UI
+    if (errors.length > 0) {
+        errorList.innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+        errorContainer.classList.remove('hidden');
+        btn.disabled = true;
+    } else {
+        errorContainer.classList.add('hidden');
+        btn.disabled = false;
+    }
+
+    // Update button text
+    const btnText = document.getElementById('apply-split-text');
+    btnText.textContent = `Apply Split (${segments.length} visits)`;
+}
+
+async function applySplit() {
+    const btn = document.getElementById('apply-split-btn');
+    const originalText = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split mr-2 animate-spin"></i> Splitting...';
+
+    try {
+        const response = await fetch(`/api/visits/${visitId}/split`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                segments: segments.map(s => ({
+                    start_time: s.startTime,
+                    end_time: s.endTime,
+                    taxon_id: s.taxonId
+                }))
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to split visit');
+        }
+
+        // Redirect to file detail page on success
+        window.location.href = `/files/${data.created_visits[0] ? '{{ visit.file_id }}' : ''}`;
+
+    } catch (error) {
+        console.error('Split error:', error);
+        alert('Failed to split visit: ' + error.message);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    const video = document.getElementById('video-player');
+
+    // Don't intercept when typing in inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+    switch(e.key) {
+        case ' ':
+            e.preventDefault();
+            if (video.paused) video.play();
+            else video.pause();
+            break;
+        case 'ArrowLeft':
+            e.preventDefault();
+            video.currentTime = Math.max(0, video.currentTime - 1);
+            break;
+        case 'ArrowRight':
+            e.preventDefault();
+            video.currentTime = Math.min(videoDuration, video.currentTime + 1);
+            break;
+        case 'j':
+            e.preventDefault();
+            video.currentTime = Math.max(0, video.currentTime - 0.1);
+            break;
+        case 'k':
+            e.preventDefault();
+            video.currentTime = Math.min(videoDuration, video.currentTime + 0.1);
+            break;
+    }
+});
+</script>
+{% endblock %}

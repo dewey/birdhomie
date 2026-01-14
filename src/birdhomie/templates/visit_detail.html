@@ -68,6 +68,9 @@
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="text-sm text-gray-500">Duration</p>
                     <p class="text-2xl font-semibold text-gray-900">{{ "%.1f"|format(visit.duration_seconds) }}s</p>
+                    {% if visit.segment_start_time is not none %}
+                    <p class="text-xs text-gray-500 mt-1">Segment: {{ "%.1f"|format(visit.segment_start_time) }}s - {{ "%.1f"|format(visit.segment_end_time) }}s</p>
+                    {% endif %}
                 </div>
             </div>
 
@@ -113,6 +116,43 @@
                     </div>
                 </div>
                 {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Split Origin Section -->
+            {% if sibling_visits %}
+            <div class="border-t border-gray-200 pt-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-3">
+                    <i class="bi bi-diagram-3"></i> Split Origin
+                </h2>
+                <div class="max-w-xl">
+                    <p class="text-sm text-gray-600 mb-3">
+                        This visit was created by splitting a longer video into segments.
+                    </p>
+                    <ul class="space-y-1">
+                        {% for sibling in sibling_visits %}
+                        <li>
+                            {% if sibling.id == visit.id %}
+                            <span class="text-sm">
+                                <span class="font-medium text-gray-900">{{ sibling.species_name }}</span>
+                                <span class="text-gray-500">({{ "%.1f"|format(sibling.segment_start_time) }}s - {{ "%.1f"|format(sibling.segment_end_time) }}s)</span>
+                                <span class="text-gray-400">— current</span>
+                            </span>
+                            {% else %}
+                            <a href="{{ url_for('visit_detail', visit_id=sibling.id) }}" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                                {{ sibling.species_name }}
+                                <span class="text-gray-500">({{ "%.1f"|format(sibling.segment_start_time) }}s - {{ "%.1f"|format(sibling.segment_end_time) }}s)</span>
+                            </a>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="mt-3">
+                        <a href="/files/{{ visit.file_id }}" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                            <i class="bi bi-file-earmark-play mr-1"></i>View source file
+                        </a>
+                    </p>
+                </div>
             </div>
             {% endif %}
 
@@ -174,6 +214,21 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Split Visit Section (only for videos) -->
+            {% if is_video and video_available %}
+            <div class="border-t border-gray-200 pt-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-3">
+                    <i class="bi bi-scissors"></i> Split Visit
+                </h2>
+                <p class="text-gray-600 mb-4">
+                    If this video contains multiple birds or the same species at different times, you can split this visit into separate time segments.
+                </p>
+                <a href="{{ url_for('split_visit_page', visit_id=visit.id) }}" class="inline-flex items-center px-5 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="bi bi-scissors mr-2"></i> Split Visit
+                </a>
+            </div>
+            {% endif %}
 
             <!-- Detection Crops -->
             <div class="border-t border-gray-200 pt-6">
@@ -402,6 +457,14 @@ document.addEventListener('DOMContentLoaded', function() {
             showLightboxImage(currentLightboxIndex);
         }
     }
+
+    // Set video start time for split visits
+    {% if visit.segment_start_time is not none %}
+    const video = document.querySelector('video');
+    if (video) {
+        video.currentTime = {{ visit.segment_start_time }};
+    }
+    {% endif %}
 });
 
 // Clear other field when one is selected

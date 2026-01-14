@@ -946,6 +946,25 @@ def visit_detail(visit_id):
             annotated_full_path = DATA_DIR / annotated_path
             video_available = annotated_full_path.exists()
 
+        # Get sibling visits if this is a split segment
+        sibling_visits = []
+        if visit["parent_visit_id"]:
+            sibling_visits = conn.execute(
+                f"""
+                SELECT
+                    v.id,
+                    v.segment_start_time,
+                    v.segment_end_time,
+                    COALESCE(t.common_name_{g.locale}, t.scientific_name) as species_name
+                FROM visits v
+                JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
+                WHERE v.parent_visit_id = ?
+                  AND v.deleted_at IS NULL
+                ORDER BY v.segment_start_time
+            """,
+                (visit["parent_visit_id"],),
+            ).fetchall()
+
     return render_template(
         "visit_detail.html",
         visit=visit,
@@ -955,6 +974,7 @@ def visit_detail(visit_id):
         annotated_path=annotated_path,
         video_available=video_available,
         file_status=file_status,
+        sibling_visits=sibling_visits,
     )
 
 
@@ -1087,6 +1107,390 @@ def set_visit_cover(visit_id, detection_id):
         conn.commit()
 
     return jsonify({"success": True})
+
+
+@app.route("/visits/<int:visit_id>/split")
+def split_visit_page(visit_id):
+    """Split visit editor page with video timeline."""
+    with db.get_connection() as conn:
+        # Get visit info with file and species data
+        visit = conn.execute(
+            f"""
+            SELECT
+                v.*,
+                t.taxon_id,
+                t.scientific_name,
+                COALESCE(t.common_name_{g.locale}, t.scientific_name) as species_name,
+                f.id as file_id,
+                f.file_path,
+                f.event_start,
+                f.duration_seconds,
+                f.status as file_status
+            FROM visits v
+            JOIN files f ON v.file_id = f.id
+            JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
+            WHERE v.id = ?
+        """,
+            (visit_id,),
+        ).fetchone()
+
+        if not visit:
+            flash(_("Visit not found"), "error")
+            return redirect(url_for("dashboard"))
+
+        # Check if visit is soft-deleted
+        if visit["deleted_at"] is not None:
+            flash(_("This visit has been deleted"), "warning")
+            return redirect(url_for("dashboard"))
+
+        # Check if already split
+        if visit["segment_start_time"] is not None:
+            flash(_("This visit has already been split"), "warning")
+            return redirect(url_for("visit_detail", visit_id=visit_id))
+
+        # Check if file is a video
+        file_path = visit["file_path"]
+        is_video = file_path.lower().endswith((".mp4", ".avi", ".mov", ".mkv"))
+        if not is_video:
+            flash(_("Split is only supported for video files"), "error")
+            return redirect(url_for("visit_detail", visit_id=visit_id))
+
+        # Get all detections for this visit
+        detections = conn.execute(
+            """
+            SELECT
+                id,
+                frame_number,
+                frame_timestamp,
+                detection_confidence,
+                species_confidence,
+                crop_path
+            FROM detections
+            WHERE visit_id = ?
+            ORDER BY frame_timestamp
+        """,
+            (visit_id,),
+        ).fetchall()
+
+        # Get all known species for correction dropdown
+        all_species = conn.execute(f"""
+            SELECT
+                taxon_id,
+                scientific_name,
+                COALESCE(common_name_{g.locale}, scientific_name) as name
+            FROM inaturalist_taxa
+            ORDER BY name
+        """).fetchall()
+
+        # Check video availability
+        annotated_path = None
+        video_available = False
+        file_status = visit["file_status"]
+
+        if file_status == "success":
+            annotated_path = f"output/{visit['file_id']}/annotated.mp4"
+            annotated_full_path = DATA_DIR / annotated_path
+            video_available = annotated_full_path.exists()
+
+        if not video_available:
+            flash(_("Video not available for splitting"), "error")
+            return redirect(url_for("visit_detail", visit_id=visit_id))
+
+    return render_template(
+        "split_visit.html",
+        visit=visit,
+        detections=detections,
+        all_species=all_species,
+        annotated_path=annotated_path,
+    )
+
+
+@app.route("/api/visits/<int:visit_id>/split-preview")
+def split_preview(visit_id):
+    """Get data needed for the split visit UI."""
+    with db.get_connection() as conn:
+        # Get visit info with file metadata
+        visit = conn.execute(
+            f"""
+            SELECT
+                v.id as visit_id,
+                v.file_id,
+                v.segment_start_time,
+                v.segment_end_time,
+                v.parent_visit_id,
+                f.duration_seconds,
+                f.file_path,
+                f.status as file_status,
+                t.taxon_id,
+                t.scientific_name,
+                COALESCE(t.common_name_{g.locale}, t.scientific_name) as species_name
+            FROM visits v
+            JOIN files f ON v.file_id = f.id
+            JOIN inaturalist_taxa t ON COALESCE(v.override_taxon_id, v.inaturalist_taxon_id) = t.taxon_id
+            WHERE v.id = ?
+                AND v.deleted_at IS NULL
+        """,
+            (visit_id,),
+        ).fetchone()
+
+        if not visit:
+            return jsonify({"error": "Visit not found or already deleted"}), 404
+
+        # Check if this visit was already split (has segment times)
+        if visit["segment_start_time"] is not None:
+            return jsonify({"error": "This visit has already been split and cannot be split again"}), 400
+
+        # Check if file is a video
+        file_path = visit["file_path"]
+        is_video = file_path.lower().endswith((".mp4", ".avi", ".mov", ".mkv"))
+        if not is_video:
+            return jsonify({"error": "Split is only supported for video files"}), 400
+
+        # Get all detections for this visit with timestamps
+        detections = conn.execute(
+            """
+            SELECT
+                id,
+                frame_number,
+                frame_timestamp,
+                detection_confidence,
+                species_confidence,
+                crop_path
+            FROM detections
+            WHERE visit_id = ?
+            ORDER BY frame_timestamp
+        """,
+            (visit_id,),
+        ).fetchall()
+
+        # Get all known species for the dropdown
+        all_species = conn.execute(f"""
+            SELECT
+                taxon_id,
+                scientific_name,
+                COALESCE(common_name_{g.locale}, scientific_name) as name
+            FROM inaturalist_taxa
+            ORDER BY name
+        """).fetchall()
+
+        # Build video URL
+        video_url = None
+        if visit["file_status"] == "success":
+            annotated_path = f"output/{visit['file_id']}/annotated.mp4"
+            annotated_full_path = DATA_DIR / annotated_path
+            if annotated_full_path.exists():
+                video_url = f"/data/{annotated_path}"
+
+        return jsonify({
+            "visit_id": visit["visit_id"],
+            "file_id": visit["file_id"],
+            "duration_seconds": visit["duration_seconds"],
+            "video_url": video_url,
+            "detections": [
+                {
+                    "id": d["id"],
+                    "frame_number": d["frame_number"],
+                    "frame_timestamp": d["frame_timestamp"],
+                    "detection_confidence": d["detection_confidence"],
+                    "species_confidence": d["species_confidence"],
+                    "crop_path": d["crop_path"],
+                }
+                for d in detections
+            ],
+            "current_species": {
+                "taxon_id": visit["taxon_id"],
+                "name": visit["species_name"],
+                "scientific_name": visit["scientific_name"],
+            },
+            "all_species": [
+                {
+                    "taxon_id": s["taxon_id"],
+                    "name": s["name"],
+                    "scientific_name": s["scientific_name"],
+                }
+                for s in all_species
+            ],
+        })
+
+
+@app.route("/api/visits/<int:visit_id>/split", methods=["POST"])
+def split_visit(visit_id):
+    """Split a visit into multiple visits based on time segments."""
+    data = request.get_json()
+    if not data or "segments" not in data:
+        return jsonify({"error": "segments array is required"}), 400
+
+    segments = data["segments"]
+
+    # Validate we have at least 2 segments
+    if len(segments) < 2:
+        return jsonify({"error": "At least 2 segments are required for splitting"}), 400
+
+    # Validate segment structure
+    for i, seg in enumerate(segments):
+        if "start_time" not in seg or "end_time" not in seg or "taxon_id" not in seg:
+            return jsonify({"error": f"Segment {i} missing required fields (start_time, end_time, taxon_id)"}), 400
+        if seg["start_time"] >= seg["end_time"]:
+            return jsonify({"error": f"Segment {i} has invalid time range (start >= end)"}), 400
+        if seg["start_time"] < 0:
+            return jsonify({"error": f"Segment {i} has negative start_time"}), 400
+
+    # Check for overlapping segments
+    sorted_segments = sorted(segments, key=lambda s: s["start_time"])
+    for i in range(len(sorted_segments) - 1):
+        if sorted_segments[i]["end_time"] > sorted_segments[i + 1]["start_time"]:
+            return jsonify({"error": "Segments must not overlap"}), 400
+
+    with db.get_connection() as conn:
+        # Get original visit
+        original = conn.execute(
+            """
+            SELECT
+                v.*,
+                f.duration_seconds
+            FROM visits v
+            JOIN files f ON v.file_id = f.id
+            WHERE v.id = ?
+                AND v.deleted_at IS NULL
+        """,
+            (visit_id,),
+        ).fetchone()
+
+        if not original:
+            return jsonify({"error": "Visit not found or already deleted"}), 404
+
+        # Check if already split
+        if original["segment_start_time"] is not None:
+            return jsonify({"error": "This visit has already been split"}), 400
+
+        # Validate segment times against video duration
+        duration = original["duration_seconds"]
+        for seg in segments:
+            if seg["end_time"] > duration:
+                return jsonify({
+                    "error": f"Segment end_time ({seg['end_time']}s) exceeds video duration ({duration}s)"
+                }), 400
+
+        # Get all detections for the original visit
+        detections = conn.execute(
+            """
+            SELECT *
+            FROM detections
+            WHERE visit_id = ?
+            ORDER BY frame_timestamp
+        """,
+            (visit_id,),
+        ).fetchall()
+
+        created_visits = []
+
+        for segment in segments:
+            start_time = segment["start_time"]
+            end_time = segment["end_time"]
+            taxon_id = segment["taxon_id"]
+
+            # Find detections within this segment's time range
+            segment_detections = [
+                d for d in detections
+                if start_time <= d["frame_timestamp"] <= end_time
+            ]
+
+            # Calculate metrics for the new visit
+            if segment_detections:
+                avg_species_confidence = sum(d["species_confidence"] or 0 for d in segment_detections) / len(segment_detections)
+                detection_count = len(segment_detections)
+            else:
+                avg_species_confidence = 0
+                detection_count = 0
+
+            # Create the new visit
+            cursor = conn.execute(
+                """
+                INSERT INTO visits (
+                    file_id,
+                    inaturalist_taxon_id,
+                    override_taxon_id,
+                    species_confidence,
+                    species_confidence_model,
+                    detection_count,
+                    segment_start_time,
+                    segment_end_time,
+                    parent_visit_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    original["file_id"],
+                    taxon_id,
+                    None,  # No override for new split visits
+                    avg_species_confidence,
+                    original["species_confidence_model"],
+                    max(detection_count, 1),  # At least 1 to satisfy CHECK constraint
+                    start_time,
+                    end_time,
+                    visit_id,
+                ),
+            )
+            new_visit_id = cursor.lastrowid
+
+            # Reassign detections to the new visit
+            if segment_detections:
+                detection_ids = [d["id"] for d in segment_detections]
+                placeholders = ",".join("?" * len(detection_ids))
+                conn.execute(
+                    f"""
+                    UPDATE detections
+                    SET visit_id = ?
+                    WHERE id IN ({placeholders})
+                """,
+                    [new_visit_id] + detection_ids,
+                )
+
+                # Set best and cover detection for new visit
+                best_detection = max(segment_detections, key=lambda d: d["detection_confidence"] or 0)
+                conn.execute(
+                    """
+                    UPDATE visits
+                    SET best_detection_id = ?,
+                        cover_detection_id = ?
+                    WHERE id = ?
+                """,
+                    (best_detection["id"], best_detection["id"], new_visit_id),
+                )
+
+            created_visits.append({
+                "id": new_visit_id,
+                "taxon_id": taxon_id,
+                "segment_start_time": start_time,
+                "segment_end_time": end_time,
+                "detection_count": detection_count,
+            })
+
+        # Soft-delete the original visit
+        conn.execute(
+            """
+            UPDATE visits
+            SET deleted_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """,
+            (visit_id,),
+        )
+
+        conn.commit()
+
+        logger.info(
+            "visit_split",
+            extra={
+                "original_visit_id": visit_id,
+                "created_visits": [v["id"] for v in created_visits],
+                "segment_count": len(segments),
+            },
+        )
+
+        return jsonify({
+            "success": True,
+            "created_visits": created_visits,
+            "original_visit_status": "archived",
+        })
 
 
 @app.route("/files/<int:file_id>")
