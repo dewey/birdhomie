@@ -34,7 +34,9 @@ def _init_pytorch_backends() -> None:
     try:
         import torch
 
-        if hasattr(torch.backends, "nnpack") and hasattr(torch.backends.nnpack, "enabled"):
+        if hasattr(torch.backends, "nnpack") and hasattr(
+            torch.backends.nnpack, "enabled"
+        ):
             torch.backends.nnpack.enabled = False
     except ImportError:
         pass

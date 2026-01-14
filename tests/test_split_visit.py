@@ -54,9 +54,7 @@ class TestSplitVisitAPI:
     def test_split_requires_segments(self, client_empty_db):
         """Test split endpoint requires segments in request body."""
         response = client_empty_db.post(
-            "/api/visits/1/split",
-            data=json.dumps({}),
-            content_type="application/json"
+            "/api/visits/1/split", data=json.dumps({}), content_type="application/json"
         )
         assert response.status_code == 400
         data = response.get_json()
@@ -67,12 +65,10 @@ class TestSplitVisitAPI:
         """Test split endpoint requires at least 2 segments."""
         response = client_empty_db.post(
             "/api/visits/1/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 0, "end_time": 10, "taxon_id": 1}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {"segments": [{"start_time": 0, "end_time": 10, "taxon_id": 1}]}
+            ),
+            content_type="application/json",
         )
         assert response.status_code == 400
         data = response.get_json()
@@ -83,13 +79,15 @@ class TestSplitVisitAPI:
         """Test split endpoint validates segment structure."""
         response = client_empty_db.post(
             "/api/visits/1/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 0, "end_time": 10},  # Missing taxon_id
-                    {"start_time": 10, "end_time": 20, "taxon_id": 1}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {"start_time": 0, "end_time": 10},  # Missing taxon_id
+                        {"start_time": 10, "end_time": 20, "taxon_id": 1},
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
         assert response.status_code == 400
         data = response.get_json()
@@ -100,13 +98,19 @@ class TestSplitVisitAPI:
         """Test split endpoint validates time ranges (start < end)."""
         response = client_empty_db.post(
             "/api/visits/1/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 10, "end_time": 5, "taxon_id": 1},  # Invalid: start > end
-                    {"start_time": 15, "end_time": 20, "taxon_id": 1}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {
+                            "start_time": 10,
+                            "end_time": 5,
+                            "taxon_id": 1,
+                        },  # Invalid: start > end
+                        {"start_time": 15, "end_time": 20, "taxon_id": 1},
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
         assert response.status_code == 400
         data = response.get_json()
@@ -117,13 +121,15 @@ class TestSplitVisitAPI:
         """Test split endpoint validates no negative times."""
         response = client_empty_db.post(
             "/api/visits/1/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": -5, "end_time": 5, "taxon_id": 1},
-                    {"start_time": 10, "end_time": 20, "taxon_id": 1}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {"start_time": -5, "end_time": 5, "taxon_id": 1},
+                        {"start_time": 10, "end_time": 20, "taxon_id": 1},
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
         assert response.status_code == 400
         data = response.get_json()
@@ -134,13 +140,19 @@ class TestSplitVisitAPI:
         """Test split endpoint validates segments don't overlap."""
         response = client_empty_db.post(
             "/api/visits/1/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 0, "end_time": 15, "taxon_id": 1},
-                    {"start_time": 10, "end_time": 25, "taxon_id": 1}  # Overlaps with first
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {"start_time": 0, "end_time": 15, "taxon_id": 1},
+                        {
+                            "start_time": 10,
+                            "end_time": 25,
+                            "taxon_id": 1,
+                        },  # Overlaps with first
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
         assert response.status_code == 400
         data = response.get_json()
@@ -151,13 +163,15 @@ class TestSplitVisitAPI:
         """Test split returns 404 for non-existent visit."""
         response = client_empty_db.post(
             "/api/visits/999999/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 0, "end_time": 10, "taxon_id": 1},
-                    {"start_time": 15, "end_time": 25, "taxon_id": 1}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {"start_time": 0, "end_time": 10, "taxon_id": 1},
+                        {"start_time": 15, "end_time": 25, "taxon_id": 1},
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
         assert response.status_code == 404
 
@@ -220,7 +234,7 @@ class TestSplitIntegration:
             # Verify detections exist for this visit
             conn.execute(
                 "SELECT COUNT(*) as count FROM detections WHERE visit_id = ?",
-                (visit["id"],)
+                (visit["id"],),
             ).fetchone()["count"]
 
         visit_id = visit["id"]
@@ -240,13 +254,19 @@ class TestSplitIntegration:
         midpoint = duration / 2
         split_response = client.post(
             f"/api/visits/{visit_id}/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 0, "end_time": midpoint, "taxon_id": taxon_id},
-                    {"start_time": midpoint, "end_time": duration, "taxon_id": taxon_id}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {"start_time": 0, "end_time": midpoint, "taxon_id": taxon_id},
+                        {
+                            "start_time": midpoint,
+                            "end_time": duration,
+                            "taxon_id": taxon_id,
+                        },
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
 
         # Check split was successful
@@ -265,8 +285,7 @@ class TestSplitIntegration:
         with db.get_connection() as conn:
             # Original visit should be soft-deleted
             original = conn.execute(
-                "SELECT deleted_at FROM visits WHERE id = ?",
-                (visit_id,)
+                "SELECT deleted_at FROM visits WHERE id = ?", (visit_id,)
             ).fetchone()
             assert original["deleted_at"] is not None
 
@@ -275,7 +294,7 @@ class TestSplitIntegration:
                 new_v = conn.execute(
                     """SELECT segment_start_time, segment_end_time, parent_visit_id
                        FROM visits WHERE id = ?""",
-                    (new_visit["id"],)
+                    (new_visit["id"],),
                 ).fetchone()
                 assert new_v is not None
                 assert new_v["segment_start_time"] is not None
@@ -309,7 +328,10 @@ class TestSplitVisitButton:
         response = client.get(f"/visits/{visit['id']}")
         assert response.status_code == 200
         # Split button should not be present for image files
-        assert b"Split Visit" not in response.data or b"only supported for video" in response.data
+        assert (
+            b"Split Visit" not in response.data
+            or b"only supported for video" in response.data
+        )
 
 
 class TestAlreadySplitVisit:
@@ -334,13 +356,15 @@ class TestAlreadySplitVisit:
         # Try to split it again
         response = client.post(
             f"/api/visits/{visit['id']}/split",
-            data=json.dumps({
-                "segments": [
-                    {"start_time": 0, "end_time": 5, "taxon_id": 1},
-                    {"start_time": 5, "end_time": 10, "taxon_id": 1}
-                ]
-            }),
-            content_type="application/json"
+            data=json.dumps(
+                {
+                    "segments": [
+                        {"start_time": 0, "end_time": 5, "taxon_id": 1},
+                        {"start_time": 5, "end_time": 10, "taxon_id": 1},
+                    ]
+                }
+            ),
+            content_type="application/json",
         )
 
         assert response.status_code == 400

@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime
-from pathlib import Path
 from io import BytesIO
 from flask import (
     Flask,
@@ -341,7 +340,8 @@ def dashboard():
         page = max(1, min(page, total_pages))
         offset = (page - 1) * per_page
 
-        species = conn.execute(f"""
+        species = conn.execute(
+            f"""
             SELECT
                 t.taxon_id,
                 t.scientific_name,
@@ -358,7 +358,9 @@ def dashboard():
             GROUP BY t.taxon_id
             ORDER BY visit_count DESC
             LIMIT ? OFFSET ?
-        """, (per_page, offset)).fetchall()
+        """,
+            (per_page, offset),
+        ).fetchall()
 
         stats = conn.execute(f"""
             SELECT
@@ -538,7 +540,8 @@ def species_list():
         page = max(1, min(page, total_pages))
         offset = (page - 1) * per_page
 
-        species = conn.execute(f"""
+        species = conn.execute(
+            f"""
             SELECT
                 t.taxon_id,
                 t.scientific_name,
@@ -554,7 +557,9 @@ def species_list():
             HAVING visit_count > 0
             ORDER BY visit_count DESC
             LIMIT ? OFFSET ?
-        """, (per_page, offset)).fetchall()
+        """,
+            (per_page, offset),
+        ).fetchall()
 
     return render_template(
         "species_list.html",
@@ -1061,11 +1066,14 @@ def files_list():
         page = max(1, min(page, total_pages))
         offset = (page - 1) * per_page
 
-        files = conn.execute("""
+        files = conn.execute(
+            """
             SELECT * FROM files
             ORDER BY event_start DESC
             LIMIT ? OFFSET ?
-        """, (per_page, offset)).fetchall()
+        """,
+            (per_page, offset),
+        ).fetchall()
 
     return render_template(
         "files_list.html",
@@ -1238,7 +1246,9 @@ def split_preview(visit_id):
 
         # Check if this visit was already split (has segment times)
         if visit["segment_start_time"] is not None:
-            return jsonify({"error": "This visit has already been split and cannot be split again"}), 400
+            return jsonify(
+                {"error": "This visit has already been split and cannot be split again"}
+            ), 400
 
         # Check if file is a video
         file_path = visit["file_path"]
@@ -1281,36 +1291,38 @@ def split_preview(visit_id):
             if annotated_full_path.exists():
                 video_url = f"/data/{annotated_path}"
 
-        return jsonify({
-            "visit_id": visit["visit_id"],
-            "file_id": visit["file_id"],
-            "duration_seconds": visit["duration_seconds"],
-            "video_url": video_url,
-            "detections": [
-                {
-                    "id": d["id"],
-                    "frame_number": d["frame_number"],
-                    "frame_timestamp": d["frame_timestamp"],
-                    "detection_confidence": d["detection_confidence"],
-                    "species_confidence": d["species_confidence"],
-                    "crop_path": d["crop_path"],
-                }
-                for d in detections
-            ],
-            "current_species": {
-                "taxon_id": visit["taxon_id"],
-                "name": visit["species_name"],
-                "scientific_name": visit["scientific_name"],
-            },
-            "all_species": [
-                {
-                    "taxon_id": s["taxon_id"],
-                    "name": s["name"],
-                    "scientific_name": s["scientific_name"],
-                }
-                for s in all_species
-            ],
-        })
+        return jsonify(
+            {
+                "visit_id": visit["visit_id"],
+                "file_id": visit["file_id"],
+                "duration_seconds": visit["duration_seconds"],
+                "video_url": video_url,
+                "detections": [
+                    {
+                        "id": d["id"],
+                        "frame_number": d["frame_number"],
+                        "frame_timestamp": d["frame_timestamp"],
+                        "detection_confidence": d["detection_confidence"],
+                        "species_confidence": d["species_confidence"],
+                        "crop_path": d["crop_path"],
+                    }
+                    for d in detections
+                ],
+                "current_species": {
+                    "taxon_id": visit["taxon_id"],
+                    "name": visit["species_name"],
+                    "scientific_name": visit["scientific_name"],
+                },
+                "all_species": [
+                    {
+                        "taxon_id": s["taxon_id"],
+                        "name": s["name"],
+                        "scientific_name": s["scientific_name"],
+                    }
+                    for s in all_species
+                ],
+            }
+        )
 
 
 @app.route("/api/visits/<int:visit_id>/split", methods=["POST"])
@@ -1329,9 +1341,15 @@ def split_visit(visit_id):
     # Validate segment structure
     for i, seg in enumerate(segments):
         if "start_time" not in seg or "end_time" not in seg or "taxon_id" not in seg:
-            return jsonify({"error": f"Segment {i} missing required fields (start_time, end_time, taxon_id)"}), 400
+            return jsonify(
+                {
+                    "error": f"Segment {i} missing required fields (start_time, end_time, taxon_id)"
+                }
+            ), 400
         if seg["start_time"] >= seg["end_time"]:
-            return jsonify({"error": f"Segment {i} has invalid time range (start >= end)"}), 400
+            return jsonify(
+                {"error": f"Segment {i} has invalid time range (start >= end)"}
+            ), 400
         if seg["start_time"] < 0:
             return jsonify({"error": f"Segment {i} has negative start_time"}), 400
 
@@ -1367,9 +1385,11 @@ def split_visit(visit_id):
         duration = original["duration_seconds"]
         for seg in segments:
             if seg["end_time"] > duration:
-                return jsonify({
-                    "error": f"Segment end_time ({seg['end_time']}s) exceeds video duration ({duration}s)"
-                }), 400
+                return jsonify(
+                    {
+                        "error": f"Segment end_time ({seg['end_time']}s) exceeds video duration ({duration}s)"
+                    }
+                ), 400
 
         # Get all detections for the original visit
         detections = conn.execute(
@@ -1391,13 +1411,14 @@ def split_visit(visit_id):
 
             # Find detections within this segment's time range
             segment_detections = [
-                d for d in detections
-                if start_time <= d["frame_timestamp"] <= end_time
+                d for d in detections if start_time <= d["frame_timestamp"] <= end_time
             ]
 
             # Calculate metrics for the new visit
             if segment_detections:
-                avg_species_confidence = sum(d["species_confidence"] or 0 for d in segment_detections) / len(segment_detections)
+                avg_species_confidence = sum(
+                    d["species_confidence"] or 0 for d in segment_detections
+                ) / len(segment_detections)
                 detection_count = len(segment_detections)
             else:
                 avg_species_confidence = 0
@@ -1446,7 +1467,9 @@ def split_visit(visit_id):
                 )
 
                 # Set best and cover detection for new visit
-                best_detection = max(segment_detections, key=lambda d: d["detection_confidence"] or 0)
+                best_detection = max(
+                    segment_detections, key=lambda d: d["detection_confidence"] or 0
+                )
                 conn.execute(
                     """
                     UPDATE visits
@@ -1457,13 +1480,15 @@ def split_visit(visit_id):
                     (best_detection["id"], best_detection["id"], new_visit_id),
                 )
 
-            created_visits.append({
-                "id": new_visit_id,
-                "taxon_id": taxon_id,
-                "segment_start_time": start_time,
-                "segment_end_time": end_time,
-                "detection_count": detection_count,
-            })
+            created_visits.append(
+                {
+                    "id": new_visit_id,
+                    "taxon_id": taxon_id,
+                    "segment_start_time": start_time,
+                    "segment_end_time": end_time,
+                    "detection_count": detection_count,
+                }
+            )
 
         # Soft-delete the original visit
         conn.execute(
@@ -1486,11 +1511,13 @@ def split_visit(visit_id):
             },
         )
 
-        return jsonify({
-            "success": True,
-            "created_visits": created_visits,
-            "original_visit_status": "archived",
-        })
+        return jsonify(
+            {
+                "success": True,
+                "created_visits": created_visits,
+                "original_visit_status": "archived",
+            }
+        )
 
 
 @app.route("/files/<int:file_id>")
@@ -1700,7 +1727,9 @@ def tasks_list():
             status_dict[row["status"]] = row["count"]
 
         # Get total count for pagination
-        total = conn.execute("SELECT COUNT(*) as count FROM task_runs").fetchone()["count"]
+        total = conn.execute("SELECT COUNT(*) as count FROM task_runs").fetchone()[
+            "count"
+        ]
         total_pages = (total + per_page - 1) // per_page if total > 0 else 1
 
         # Ensure page is within bounds
@@ -1709,7 +1738,8 @@ def tasks_list():
 
         # Get all recent tasks, showing running tasks first
         # Format timestamps as ISO 8601 with 'Z' suffix to indicate UTC
-        tasks = conn.execute("""
+        tasks = conn.execute(
+            """
             SELECT
                 id,
                 task_type,
@@ -1730,7 +1760,9 @@ def tasks_list():
                 END,
                 COALESCE(completed_at, started_at) DESC
             LIMIT ? OFFSET ?
-        """, (per_page, offset)).fetchall()
+        """,
+            (per_page, offset),
+        ).fetchall()
 
     # Pass scheduler configuration
     schedule_info = {

@@ -19,6 +19,8 @@ Bird detection and classification system for UniFi Protect with web interface.
 - Web interface for viewing detections and species
 - Species information from iNaturalist and Wikipedia
 - Visit tracking and photo galleries
+- Split visit support for tracking multiple birds in a single visit
+- Dashboard with charts and statistics visualization
 - Manual labeling interface for reviewing face annotations
 - Internationalization support (English, German)
 
@@ -135,6 +137,10 @@ All configuration options have sensible defaults. Only UniFi Protect credentials
 | `MIN_DETECTION_CONFIDENCE` | `0.80` | Minimum confidence for bird detection (0.0-1.0) |
 | `FRAME_SKIP` | `5` | Process every Nth frame |
 | `FILE_RETENTION_DAYS` | `30` | Days to keep processed files |
+| `UFP_INITIAL_SYNC_DAYS` | `30` | Days to look back on initial sync |
+| `GUNICORN_WORKERS` | `2` | Number of web server workers (production) |
+| `PORT` | `5000` | Web server port |
+| `NNPACK_DISABLE` | `0` | Set to `1` for CPUs without AVX2/FMA support |
 
 ### Development Settings
 
@@ -153,6 +159,7 @@ Access the web interface at http://localhost:5000 (Docker) or http://127.0.0.1:5
 - `/species` - List of all detected species
 - `/species/<id>` - Species detail page with photos and visits
 - `/visits/<id>` - Individual visit details with video player
+- `/visits/<id>/split` - Split a visit when multiple birds are detected
 - `/files` - List of all processed files
 - `/tasks` - Background task status
 - `/labeling` - Manual labeling interface for face annotations
@@ -253,6 +260,10 @@ Make sure you've configured the required UniFi Protect credentials in your `.env
 ### Port Already in Use
 
 Change the port mapping in `docker-compose.yml` or stop the conflicting process.
+
+### High CPU Usage on Older CPUs
+
+If you're running on a CPU without AVX2/FMA support (Intel pre-Haswell/2013, AMD pre-Excavator/2015), you may experience high CPU usage during model inference. Set `NNPACK_DISABLE=1` in your environment to disable NNPACK optimizations.
 
 ## License
 
