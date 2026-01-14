@@ -25,9 +25,9 @@ export UFP_CAMERA_ID=your-camera-id
 # Options: motion, person, vehicle, animal, package, etc.
 export UFP_DETECTION_TYPES=motion
 
-# Verify SSL certificates for UniFi Protect connection (default: false)
-# Set to true if your NVR has a valid SSL certificate
-export UFP_SSL_VERIFY=false
+# Verify SSL certificates for UniFi Protect connection (default: 0)
+# Set to 1 if your NVR has a valid SSL certificate
+export UFP_SSL_VERIFY=0
 
 # How often to check UniFi Protect for new events, in minutes (default: 60)
 export UFP_DOWNLOAD_INTERVAL_MINUTES=60

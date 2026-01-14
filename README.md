@@ -129,7 +129,7 @@ All configuration options have sensible defaults. Only UniFi Protect credentials
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `UFP_DETECTION_TYPES` | `motion` | Detection types to monitor |
-| `UFP_SSL_VERIFY` | `false` | Verify SSL certificates |
+| `UFP_SSL_VERIFY` | `0` | Verify SSL certificates (set to `1` to enable) |
 | `UFP_DOWNLOAD_INTERVAL_MINUTES` | `60` | How often to check for new events |
 | `PROCESSOR_INTERVAL_MINUTES` | `5` | How often to process files |
 | `PROCESSOR_WORKERS` | `1` | Parallel video processing workers |

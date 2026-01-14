@@ -81,7 +81,7 @@ class Config:
             ufp_password=required["UFP_PASSWORD"],
             ufp_camera_id=required["UFP_CAMERA_ID"],
             ufp_detection_types=os.getenv("UFP_DETECTION_TYPES", "motion"),
-            ufp_ssl_verify=os.getenv("UFP_SSL_VERIFY", "false").lower() == "true",
+            ufp_ssl_verify=os.getenv("UFP_SSL_VERIFY", "0") == "1",
             ufp_download_interval_minutes=int(
                 os.getenv("UFP_DOWNLOAD_INTERVAL_MINUTES", "60")
             ),

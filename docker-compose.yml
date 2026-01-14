@@ -18,7 +18,7 @@ services:
 
       # Optional: Detection settings
       - UFP_DETECTION_TYPES=motion
-      - UFP_SSL_VERIFY=false
+      - UFP_SSL_VERIFY=0
       - UFP_DOWNLOAD_INTERVAL_MINUTES=60
       - PROCESSOR_INTERVAL_MINUTES=5
       - PROCESSOR_WORKERS=1  # Number of files to process in parallel
