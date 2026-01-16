@@ -1051,8 +1051,9 @@ def correct_visit_species(visit_id):
 
 @app.route("/files")
 def files_list():
-    """List all files with pagination."""
+    """List all files with pagination and filtering."""
     page = request.args.get("page", 1, type=int)
+    status_filter = request.args.get("status", "", type=str)
     per_page = 100
 
     with db.get_connection() as conn:
@@ -1069,27 +1070,41 @@ def files_list():
         for row in status_counts:
             status_dict[row["status"]] = row["count"]
 
+        # Build WHERE clause for filtering
+        where_clause = ""
+        count_params = []
+        query_params = []
+        if status_filter:
+            where_clause = "WHERE status = ?"
+            count_params = [status_filter]
+            query_params = [status_filter]
+
         # Get total count for pagination
-        total = conn.execute("SELECT COUNT(*) as count FROM files").fetchone()["count"]
+        total = conn.execute(
+            f"SELECT COUNT(*) as count FROM files {where_clause}", tuple(count_params)
+        ).fetchone()["count"]
         total_pages = (total + per_page - 1) // per_page if total > 0 else 1
 
         # Ensure page is within bounds
         page = max(1, min(page, total_pages))
         offset = (page - 1) * per_page
 
+        query_params.extend([per_page, offset])
         files = conn.execute(
-            """
+            f"""
             SELECT * FROM files
+            {where_clause}
             ORDER BY event_start DESC
             LIMIT ? OFFSET ?
         """,
-            (per_page, offset),
+            tuple(query_params),
         ).fetchall()
 
     return render_template(
         "files_list.html",
         files=files,
         status_counts=status_dict,
+        status_filter=status_filter,
         page=page,
         total_pages=total_pages,
     )
@@ -1793,8 +1808,9 @@ def serve_data(filename):
 
 @app.route("/tasks")
 def tasks_list():
-    """List all task runs with pagination."""
+    """List all task runs with pagination and filtering."""
     page = request.args.get("page", 1, type=int)
+    status_filter = request.args.get("status", "", type=str)
     per_page = 100
 
     with db.get_connection() as conn:
@@ -1811,10 +1827,20 @@ def tasks_list():
         for row in status_counts:
             status_dict[row["status"]] = row["count"]
 
+        # Build WHERE clause for filtering
+        where_clause = ""
+        count_params = []
+        query_params = []
+        if status_filter:
+            where_clause = "WHERE status = ?"
+            count_params = [status_filter]
+            query_params = [status_filter]
+
         # Get total count for pagination
-        total = conn.execute("SELECT COUNT(*) as count FROM task_runs").fetchone()[
-            "count"
-        ]
+        total = conn.execute(
+            f"SELECT COUNT(*) as count FROM task_runs {where_clause}",
+            tuple(count_params),
+        ).fetchone()["count"]
         total_pages = (total + per_page - 1) // per_page if total > 0 else 1
 
         # Ensure page is within bounds
@@ -1823,8 +1849,9 @@ def tasks_list():
 
         # Get all recent tasks, showing running tasks first
         # Format timestamps as ISO 8601 with 'Z' suffix to indicate UTC
+        query_params.extend([per_page, offset])
         tasks = conn.execute(
-            """
+            f"""
             SELECT
                 id,
                 task_type,
@@ -1838,6 +1865,7 @@ def tasks_list():
                 hostname,
                 pid
             FROM task_runs
+            {where_clause}
             ORDER BY
                 CASE status
                     WHEN 'running' THEN 0
@@ -1846,7 +1874,7 @@ def tasks_list():
                 COALESCE(completed_at, started_at) DESC
             LIMIT ? OFFSET ?
         """,
-            (per_page, offset),
+            tuple(query_params),
         ).fetchall()
 
     # Pass scheduler configuration
@@ -1861,6 +1889,7 @@ def tasks_list():
         tasks=tasks,
         schedule=schedule_info,
         status_counts=status_dict,
+        status_filter=status_filter,
         page=page,
         total_pages=total_pages,
     )
@@ -1868,11 +1897,22 @@ def tasks_list():
 
 @app.route("/tasks/api")
 def tasks_api():
-    """API endpoint to get task runs as JSON."""
+    """API endpoint to get task runs as JSON with optional status filtering."""
+    status_filter = request.args.get("status", "", type=str)
+
     with db.get_connection() as conn:
+        # Build WHERE clause for filtering
+        where_clause = ""
+        params = []
+        if status_filter:
+            where_clause = "WHERE status = ?"
+            params = [status_filter]
+
         # Get all recent tasks, showing running tasks first
         # Format timestamps as ISO 8601 with 'Z' suffix to indicate UTC
-        tasks = conn.execute("""
+        params.append(100)  # LIMIT
+        tasks = conn.execute(
+            f"""
             SELECT
                 id,
                 task_type,
@@ -1886,14 +1926,17 @@ def tasks_api():
                 hostname,
                 pid
             FROM task_runs
+            {where_clause}
             ORDER BY
                 CASE status
                     WHEN 'running' THEN 0
                     ELSE 1
                 END,
                 COALESCE(completed_at, started_at) DESC
-            LIMIT 100
-        """).fetchall()
+            LIMIT ?
+        """,
+            tuple(params),
+        ).fetchall()
 
     return jsonify([dict(task) for task in tasks])
 

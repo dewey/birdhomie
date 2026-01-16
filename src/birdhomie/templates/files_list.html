@@ -11,6 +11,24 @@
     {{ status_overview(status_counts, 'filesChart') }}
     {% endif %}
 
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">File History</h2>
+        <div class="flex items-center gap-2">
+            <label for="status-filter" class="text-sm text-gray-600">Filter by status:</label>
+            <select
+                id="status-filter"
+                onchange="filterByStatus(this.value)"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All</option>
+                {% for status, count in status_counts.items() %}
+                <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>
+                    {{ status.capitalize() }} ({{ count }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
     {% if files %}
     <div class="bg-white shadow overflow-hidden sm:rounded-md">
         <ul class="divide-y divide-gray-200">
@@ -69,7 +87,7 @@
         </ul>
     </div>
 
-    {{ pagination(page, total_pages, '/files') }}
+    {{ pagination(page, total_pages, '/files' + ('?status=' + status_filter if status_filter else '')) }}
     {% else %}
     <div class="text-center py-12">
         <i class="bi bi-film text-gray-400 text-6xl mb-4"></i>
@@ -78,8 +96,19 @@
     {% endif %}
 </div>
 
-{% if status_counts %}
 <script>
+function filterByStatus(status) {
+    const url = new URL(window.location);
+    if (status) {
+        url.searchParams.set('status', status);
+    } else {
+        url.searchParams.delete('status');
+    }
+    url.searchParams.delete('page'); // Reset to first page when filtering
+    window.location.href = url.toString();
+}
+
+{% if status_counts %}
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('filesChart').getContext('2d');
     const statusCounts = {{ status_counts | tojson }};
@@ -122,6 +151,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-</script>
 {% endif %}
+</script>
 {% endblock %}

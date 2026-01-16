@@ -16,6 +16,27 @@ REQUEST_TIMEOUT = 10
 RATE_LIMIT_DELAY = 0.5
 
 
+def _upsert_external_identifier(
+    conn, taxon_id: int, source: str, identifier: str
+) -> None:
+    """Upsert an external identifier using DELETE + INSERT.
+
+    This pattern handles SQLite's partial unique indexes correctly:
+    - idx_ext_id_no_lang: UNIQUE(taxon_id, source) WHERE language_code IS NULL
+    """
+    conn.execute(
+        """DELETE FROM external_identifiers
+           WHERE taxon_id = ? AND source = ? AND language_code IS NULL""",
+        (taxon_id, source),
+    )
+    conn.execute(
+        """INSERT INTO external_identifiers
+           (taxon_id, source, identifier, language_code, fetched_at)
+           VALUES (?, ?, ?, NULL, CURRENT_TIMESTAMP)""",
+        (taxon_id, source, identifier),
+    )
+
+
 def _store_taxon_external_identifiers(taxon_id: int, wikipedia_url: str | None) -> None:
     """Store iNaturalist and Wikidata identifiers for a taxon.
 
@@ -23,44 +44,27 @@ def _store_taxon_external_identifiers(taxon_id: int, wikipedia_url: str | None) 
         taxon_id: iNaturalist taxon ID
         wikipedia_url: Optional Wikipedia URL to extract Wikidata QID from
     """
-    # Store iNaturalist identifier
-    with db.get_connection() as conn:
-        conn.execute(
-            """
-            INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
-            VALUES (?, 'inaturalist', ?, NULL, CURRENT_TIMESTAMP)
-            ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
-                identifier = excluded.identifier,
-                fetched_at = CURRENT_TIMESTAMP
-        """,
-            (taxon_id, str(taxon_id)),
-        )
-
-    # Extract and store wikidata_qid from wikipedia_url if available
+    # Fetch wikidata_qid outside transaction (network call shouldn't hold DB lock)
+    wikidata_qid = None
     if wikipedia_url:
         try:
             time.sleep(RATE_LIMIT_DELAY)
             wikidata_qid = fetch_wikidata_qid(wikipedia_url)
-            if wikidata_qid:
-                with db.get_connection() as conn:
-                    conn.execute(
-                        """
-                        INSERT INTO external_identifiers (taxon_id, source, identifier, language_code, fetched_at)
-                        VALUES (?, 'wikidata', ?, NULL, CURRENT_TIMESTAMP)
-                        ON CONFLICT(taxon_id, source, COALESCE(language_code, '')) DO UPDATE SET
-                            identifier = excluded.identifier,
-                            fetched_at = CURRENT_TIMESTAMP
-                    """,
-                        (taxon_id, wikidata_qid),
-                    )
-                logger.info(
-                    "wikidata_qid_stored",
-                    extra={"taxon_id": taxon_id, "qid": wikidata_qid},
-                )
         except Exception as e:
             logger.warning(
                 "wikidata_qid_fetch_failed",
                 extra={"taxon_id": taxon_id, "error": str(e)},
+            )
+
+    # Single transaction for all DB operations
+    with db.get_connection() as conn:
+        _upsert_external_identifier(conn, taxon_id, "inaturalist", str(taxon_id))
+
+        if wikidata_qid:
+            _upsert_external_identifier(conn, taxon_id, "wikidata", wikidata_qid)
+            logger.info(
+                "wikidata_qid_stored",
+                extra={"taxon_id": taxon_id, "qid": wikidata_qid},
             )
 
 
@@ -68,8 +72,14 @@ def normalize_species_name(name: str) -> str:
     """Normalize species name from classifier output to search format.
 
     Converts 'PARUS MAJOR' or 'PARUS_MAJOR' to 'Parus major'.
+    Scientific names have only the genus (first word) capitalized.
     """
-    return name.replace("_", " ").title()
+    cleaned = name.replace("_", " ").strip()
+    parts = cleaned.split()
+    if not parts:
+        return cleaned
+    # Capitalize only the genus (first word), lowercase the rest
+    return " ".join([parts[0].capitalize()] + [p.lower() for p in parts[1:]])
 
 
 def parse_inaturalist_url(url: str) -> Optional[int]:
@@ -263,6 +273,67 @@ def download_species_image(image_url: str, taxon_id: int) -> Optional[str]:
         return None
 
 
+def _save_taxon_data(api_data: Dict) -> int:
+    """Save taxon data from API response to database.
+
+    Handles inserting/updating the taxon record, external identifiers, and images.
+    This is the shared logic used by both get_or_create_taxon functions.
+
+    Args:
+        api_data: Dict with taxon_id, scientific_name, common_name_en/de, image_url, etc.
+
+    Returns:
+        The taxon_id
+    """
+    taxon_id = api_data["taxon_id"]
+
+    # Insert/update taxon record
+    with db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO inaturalist_taxa
+            (taxon_id, scientific_name, common_name_en, common_name_de, fetched_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(taxon_id) DO UPDATE SET
+                scientific_name = excluded.scientific_name,
+                common_name_en = excluded.common_name_en,
+                common_name_de = excluded.common_name_de,
+                fetched_at = CURRENT_TIMESTAMP
+            """,
+            (
+                taxon_id,
+                api_data["scientific_name"],
+                api_data["common_name_en"],
+                api_data["common_name_de"],
+            ),
+        )
+
+    # Store external identifiers (iNaturalist + Wikidata if available)
+    _store_taxon_external_identifiers(taxon_id, api_data.get("wikipedia_url"))
+
+    # Download and store image if available
+    if api_data.get("image_url"):
+        local_path = download_species_image(api_data["image_url"], taxon_id)
+        if local_path:
+            with db.get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO species_images
+                    (taxon_id, original_url, local_path, attribution, is_default, fetched_at)
+                    VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (
+                        taxon_id,
+                        api_data["image_url"],
+                        str(local_path),
+                        api_data.get("image_attribution"),
+                    ),
+                )
+
+    return taxon_id
+
+
 def get_or_create_taxon(scientific_name: str) -> Optional[int]:
     """Get or create iNaturalist taxon record.
 
@@ -274,75 +345,23 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
     """
     normalized = normalize_species_name(scientific_name)
 
-    # Check if already in database
+    # Check if already in database (case-insensitive for robustness)
     with db.get_connection() as conn:
         existing = conn.execute(
-            """
-            SELECT taxon_id FROM inaturalist_taxa
-            WHERE scientific_name = ?
-        """,
+            "SELECT taxon_id FROM inaturalist_taxa WHERE scientific_name = ? COLLATE NOCASE",
             (normalized,),
         ).fetchone()
-
         if existing:
             return existing["taxon_id"]
 
     # Fetch from API
     time.sleep(RATE_LIMIT_DELAY)
-
     try:
         api_data = fetch_species_from_api(scientific_name)
-
         if not api_data:
             return None
 
-        taxon_id = api_data["taxon_id"]
-
-        # Insert into database (without wikipedia_url and wikidata_qid - now in external_identifiers)
-        with db.get_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO inaturalist_taxa
-                (taxon_id, scientific_name, common_name_en, common_name_de, fetched_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(taxon_id) DO UPDATE SET
-                    common_name_en = excluded.common_name_en,
-                    common_name_de = excluded.common_name_de,
-                    fetched_at = CURRENT_TIMESTAMP
-            """,
-                (
-                    taxon_id,
-                    api_data["scientific_name"],
-                    api_data["common_name_en"],
-                    api_data["common_name_de"],
-                ),
-            )
-
-        # Store external identifiers (iNaturalist + Wikidata if available)
-        _store_taxon_external_identifiers(taxon_id, api_data.get("wikipedia_url"))
-
-        # Download image if available
-        if api_data["image_url"]:
-            local_path = download_species_image(api_data["image_url"], taxon_id)
-
-            if local_path:
-                with db.get_connection() as conn:
-                    conn.execute(
-                        """
-                        INSERT INTO species_images
-                        (taxon_id, original_url, local_path, attribution,
-                         is_default, fetched_at)
-                        VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-                        ON CONFLICT DO NOTHING
-                    """,
-                        (
-                            taxon_id,
-                            api_data["image_url"],
-                            str(local_path),
-                            api_data["image_attribution"],
-                        ),
-                    )
-
+        taxon_id = _save_taxon_data(api_data)
         logger.info(
             "taxon_created",
             extra={
@@ -350,7 +369,6 @@ def get_or_create_taxon(scientific_name: str) -> Optional[int]:
                 "scientific_name": api_data["scientific_name"],
             },
         )
-
         return taxon_id
 
     except Exception as e:
@@ -373,71 +391,20 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
     # Check if already in database
     with db.get_connection() as conn:
         existing = conn.execute(
-            """
-            SELECT taxon_id FROM inaturalist_taxa
-            WHERE taxon_id = ?
-        """,
+            "SELECT taxon_id FROM inaturalist_taxa WHERE taxon_id = ?",
             (taxon_id,),
         ).fetchone()
-
         if existing:
             return existing["taxon_id"]
 
     # Fetch from API
     time.sleep(RATE_LIMIT_DELAY)
-
     try:
         api_data = fetch_species_by_taxon_id(taxon_id)
-
         if not api_data:
             return None
 
-        # Insert into database (without wikipedia_url and wikidata_qid - now in external_identifiers)
-        with db.get_connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO inaturalist_taxa
-                (taxon_id, scientific_name, common_name_en, common_name_de, fetched_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(taxon_id) DO UPDATE SET
-                    scientific_name = excluded.scientific_name,
-                    common_name_en = excluded.common_name_en,
-                    common_name_de = excluded.common_name_de,
-                    fetched_at = CURRENT_TIMESTAMP
-            """,
-                (
-                    taxon_id,
-                    api_data["scientific_name"],
-                    api_data["common_name_en"],
-                    api_data["common_name_de"],
-                ),
-            )
-
-        # Store external identifiers (iNaturalist + Wikidata if available)
-        _store_taxon_external_identifiers(taxon_id, api_data.get("wikipedia_url"))
-
-        # Download image if available
-        if api_data["image_url"]:
-            local_path = download_species_image(api_data["image_url"], taxon_id)
-
-            if local_path:
-                with db.get_connection() as conn:
-                    conn.execute(
-                        """
-                        INSERT INTO species_images
-                        (taxon_id, original_url, local_path, attribution,
-                         is_default, fetched_at)
-                        VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-                        ON CONFLICT DO NOTHING
-                    """,
-                        (
-                            taxon_id,
-                            api_data["image_url"],
-                            str(local_path),
-                            api_data["image_attribution"],
-                        ),
-                    )
-
+        _save_taxon_data(api_data)
         logger.info(
             "taxon_created_by_id",
             extra={
@@ -445,11 +412,11 @@ def get_or_create_taxon_by_id(taxon_id: int) -> Optional[int]:
                 "scientific_name": api_data["scientific_name"],
             },
         )
-
         return taxon_id
 
     except Exception as e:
         logger.error(
-            "taxon_creation_by_id_failed", extra={"taxon_id": taxon_id, "error": str(e)}
+            "taxon_creation_by_id_failed",
+            extra={"taxon_id": taxon_id, "error": str(e)},
         )
         return None

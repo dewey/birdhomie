@@ -2,19 +2,20 @@
 
 import logging
 import hashlib
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Dict
 import cv2
 from PIL import Image
 from .config import Config
-from .constants import OUTPUT_DIR, YOLO_MODEL_PATH, BIOCLIP_MODEL_NAME
+from .constants import OUTPUT_DIR
 from .detector import BirdDetector
 from .classifier import BirdSpeciesClassifier
 from .inaturalist import get_or_create_taxon
 from .wikipedia import fetch_and_store_wikipedia_pages
-from . import database as db
+from .video_processor import VideoFrameExtractor, VideoAnnotator
+from .visit_grouper import VisitGrouper
+from .repositories import FileRepository, VisitRepository
 from .utils import track_timing
 
 logger = logging.getLogger(__name__)
@@ -23,18 +24,43 @@ logger = logging.getLogger(__name__)
 class FileProcessor:
     """Processes video files for bird detection and classification."""
 
-    def __init__(self, config: Config):
+    def __init__(
+        self,
+        config: Config,
+        detector: BirdDetector = None,
+        classifier: BirdSpeciesClassifier = None,
+        file_repo: FileRepository = None,
+        visit_repo: VisitRepository = None,
+        frame_extractor: VideoFrameExtractor = None,
+        annotator: VideoAnnotator = None,
+        visit_grouper: VisitGrouper = None,
+    ):
         """Initialize the file processor.
 
         Args:
             config: Application configuration
+            detector: Bird detector (optional, will create if None)
+            classifier: Species classifier (optional, will create if None)
+            file_repo: File repository (optional, will create if None)
+            visit_repo: Visit repository (optional, will create if None)
+            frame_extractor: Frame extractor (optional, will create if None)
+            annotator: Video annotator (optional, will create if None)
+            visit_grouper: Visit grouper (optional, will create if None)
         """
         self.config = config
-        self.detector = BirdDetector(
-            model_path=YOLO_MODEL_PATH,
+        self.detector = detector or BirdDetector(
             confidence_threshold=config.min_detection_confidence,
         )
-        self.classifier = BirdSpeciesClassifier()
+        self.classifier = classifier or BirdSpeciesClassifier()
+        self.file_repo = file_repo or FileRepository()
+        self.visit_repo = visit_repo or VisitRepository()
+        self.frame_extractor = frame_extractor or VideoFrameExtractor(
+            frame_skip=config.frame_skip
+        )
+        self.annotator = annotator or VideoAnnotator()
+        self.visit_grouper = visit_grouper or VisitGrouper(
+            min_species_confidence=config.min_species_confidence
+        )
 
         logger.info(
             "file_processor_initialized",
@@ -58,48 +84,23 @@ class FileProcessor:
 
         # Get or create file record
         file_hash = self._calculate_file_hash(file_path)
+        existing = self.file_repo.get_by_hash(file_hash)
 
-        with db.get_connection() as conn:
-            # Check if already processed
-            existing = conn.execute(
-                """
-                SELECT id, status FROM files
-                WHERE file_hash = ?
-            """,
-                (file_hash,),
-            ).fetchone()
+        if existing and existing["status"] == "success":
+            logger.info("file_already_processed", extra={"file": str(file_path)})
+            return False
 
-            if existing and existing["status"] == "success":
-                logger.info("file_already_processed", extra={"file": str(file_path)})
-                return False
+        # Update or insert file record
+        if existing:
+            file_id = existing["id"]
+            self.file_repo.mark_processing(file_id)
+        else:
+            # Get file metadata from filename or stat
+            event_start = file_path.stat().st_mtime
+            from datetime import datetime
 
-            # Update or insert file record
-            if existing:
-                file_id = existing["id"]
-                conn.execute(
-                    """
-                    UPDATE files
-                    SET status = 'processing', processed_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """,
-                    (file_id,),
-                )
-            else:
-                # Get file metadata from filename or stat
-                event_start = file_path.stat().st_mtime
-                from datetime import datetime
-
-                event_start_dt = datetime.fromtimestamp(event_start)
-
-                cursor = conn.execute(
-                    """
-                    INSERT INTO files
-                    (file_path, file_hash, event_start, status)
-                    VALUES (?, ?, ?, 'processing')
-                """,
-                    (str(file_path), file_hash, event_start_dt),
-                )
-                file_id = cursor.lastrowid
+            event_start_dt = datetime.fromtimestamp(event_start)
+            file_id = self.file_repo.create(file_path, file_hash, event_start_dt)
 
         # Create output directory
         output_dir = OUTPUT_DIR / str(file_id)
@@ -112,18 +113,7 @@ class FileProcessor:
             duration = self._process_video(file_path, file_id, output_dir, crops_dir)
 
             # Update file record with success
-            with db.get_connection() as conn:
-                conn.execute(
-                    """
-                    UPDATE files
-                    SET status = 'success',
-                        duration_seconds = ?,
-                        output_dir = ?,
-                        processed_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """,
-                    (duration, f"output/{file_id}", file_id),
-                )
+            self.file_repo.mark_success(file_id, duration, f"output/{file_id}")
 
             logger.info(
                 "file_processed_successfully",
@@ -142,18 +132,7 @@ class FileProcessor:
                 extra={"file": str(file_path), "file_id": file_id, "error": str(e)},
             )
 
-            with db.get_connection() as conn:
-                conn.execute(
-                    """
-                    UPDATE files
-                    SET status = 'failed',
-                        error_message = ?,
-                        processed_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """,
-                    (str(e), file_id),
-                )
-
+            self.file_repo.mark_failed(file_id, str(e))
             return False
 
     def _calculate_file_hash(self, file_path: Path) -> str:
@@ -183,28 +162,19 @@ class FileProcessor:
             extra={"file": str(file_path), "file_id": file_id},
         )
 
-        # Open video with OpenCV for processing
-        cap = cv2.VideoCapture(str(file_path))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-        # Prepare annotated video writer
-        annotated_path = output_dir / "annotated.mp4"
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out = cv2.VideoWriter(str(annotated_path), fourcc, fps, (width, height))
+        # Get video info
+        video_info = self.frame_extractor.get_video_info(file_path)
+        fps = video_info["fps"]
+        height = video_info["height"]
+        width = video_info["width"]
+        total_frames = video_info["total_frames"]
 
         # Process frames
-        frame_idx = 0
-        all_detections = []  # Store all detections for grouping
-        log_interval = max(100, total_frames // 10)  # Log every 10% or 100 frames
+        all_detections = []
+        detections_by_frame = {}  # For annotation
+        log_interval = max(100, total_frames // 10)
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
+        for frame_idx, frame in self.frame_extractor.extract_frames(file_path):
             # Log progress periodically
             if frame_idx > 0 and frame_idx % log_interval == 0:
                 progress_pct = (
@@ -221,90 +191,66 @@ class FileProcessor:
                     },
                 )
 
-            # Process every Nth frame
-            if frame_idx % self.config.frame_skip == 0:
-                detections = self.detector.detect_birds(frame)
+            # Detect birds
+            detections = self.detector.detect_birds(frame)
+            detections_by_frame[frame_idx] = detections
 
-                # Draw detections on frame
-                annotated_frame = frame.copy()
-                for det in detections:
-                    x1, y1, x2, y2 = det["bbox"]
-                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    conf_text = f"{det['confidence']:.2f}"
-                    cv2.putText(
-                        annotated_frame,
-                        conf_text,
-                        (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (0, 255, 0),
-                        2,
+            # Process each detection
+            for det_idx, det in enumerate(detections):
+                x1, y1, x2, y2 = det["bbox"]
+                confidence = det["confidence"]
+
+                # Save crop
+                crop = frame[y1:y2, x1:x2]
+                crop_filename = f"frame_{frame_idx:06d}_det{det_idx:02d}.jpg"
+                crop_path = crops_dir / crop_filename
+                cv2.imwrite(str(crop_path), crop)
+
+                # Check if edge detection
+                is_edge = self.detector.is_edge_detection(
+                    (x1, y1, x2, y2), (height, width)
+                )
+
+                # Classify species (skip edge detections)
+                species_name = None
+                species_confidence = None
+
+                if not is_edge:
+                    pil_crop = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+                    species_name, species_confidence = (
+                        self.classifier.classify_from_array(pil_crop)
+                    )
+                    logger.debug(
+                        "species_classified",
+                        extra={
+                            "frame": frame_idx,
+                            "species": species_name,
+                            "confidence": species_confidence,
+                            "passes_threshold": species_confidence
+                            and species_confidence
+                            >= self.config.min_species_confidence,
+                        },
                     )
 
-                # Process each detection
-                for det_idx, det in enumerate(detections):
-                    x1, y1, x2, y2 = det["bbox"]
-                    confidence = det["confidence"]
+                # Store detection info
+                all_detections.append(
+                    {
+                        "frame_number": frame_idx,
+                        "frame_timestamp": frame_idx / fps,
+                        "detection_confidence": confidence,
+                        "species_name": species_name,
+                        "species_confidence": species_confidence,
+                        "bbox": (x1, y1, x2, y2),
+                        "crop_path": str(crop_path.relative_to(output_dir.parent)),
+                        "is_edge": is_edge,
+                    }
+                )
 
-                    # Save crop
-                    crop = frame[y1:y2, x1:x2]
-                    crop_filename = f"frame_{frame_idx:06d}_det{det_idx:02d}.jpg"
-                    crop_path = crops_dir / crop_filename
-                    cv2.imwrite(str(crop_path), crop)
-
-                    # Check if edge detection
-                    is_edge = self.detector.is_edge_detection(
-                        (x1, y1, x2, y2), (height, width)
-                    )
-
-                    # Classify species (skip edge detections)
-                    species_name = None
-                    species_confidence = None
-
-                    if not is_edge:
-                        pil_crop = Image.fromarray(
-                            cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-                        )
-                        species_name, species_confidence = (
-                            self.classifier.classify_from_array(pil_crop)
-                        )
-                        logger.debug(
-                            "species_classified",
-                            extra={
-                                "frame": frame_idx,
-                                "species": species_name,
-                                "confidence": species_confidence,
-                                "passes_threshold": species_confidence
-                                and species_confidence
-                                >= self.config.min_species_confidence,
-                            },
-                        )
-
-                    # Store detection info
-                    all_detections.append(
-                        {
-                            "frame_number": frame_idx,
-                            "frame_timestamp": frame_idx / fps,
-                            "detection_confidence": confidence,
-                            "species_name": species_name,
-                            "species_confidence": species_confidence,
-                            "bbox": (x1, y1, x2, y2),
-                            "crop_path": str(crop_path.relative_to(output_dir.parent)),
-                            "is_edge": is_edge,
-                        }
-                    )
-
-                out.write(annotated_frame)
-            else:
-                out.write(frame)
-
-            frame_idx += 1
-
-        cap.release()
-        out.release()
-
-        # Convert to H.264
-        self._convert_to_h264(annotated_path)
+        # Create annotated video
+        annotated_path = output_dir / "annotated.mp4"
+        self.annotator.create_annotated_video(
+            file_path, annotated_path, self.config.frame_skip, detections_by_frame
+        )
 
         # Group detections into visits
         self._create_visits_from_detections(file_id, all_detections)
@@ -322,72 +268,6 @@ class FileProcessor:
 
         return duration
 
-    def _convert_to_h264(self, video_path: Path):
-        """Convert video to H.264 codec for browser compatibility."""
-        temp_path = video_path.with_suffix(".temp.mp4")
-        video_path.rename(temp_path)
-
-        try:
-            # Try hardware acceleration first (macOS)
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    str(temp_path),
-                    "-c:v",
-                    "h264_videotoolbox",
-                    "-b:v",
-                    "5M",
-                    "-c:a",
-                    "aac",
-                    "-movflags",
-                    "+faststart",
-                    str(video_path),
-                ],
-                check=True,
-                capture_output=True,
-                timeout=300,
-            )
-            temp_path.unlink()
-            logger.info("video_converted_h264", extra={"path": str(video_path)})
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            subprocess.TimeoutExpired,
-        ):
-            # Fallback to software encoding
-            try:
-                subprocess.run(
-                    [
-                        "ffmpeg",
-                        "-y",
-                        "-i",
-                        str(temp_path),
-                        "-c:v",
-                        "libx264",
-                        "-preset",
-                        "fast",
-                        "-crf",
-                        "23",
-                        "-c:a",
-                        "aac",
-                        "-movflags",
-                        "+faststart",
-                        str(video_path),
-                    ],
-                    check=True,
-                    capture_output=True,
-                    timeout=300,
-                )
-                temp_path.unlink()
-                logger.info(
-                    "video_converted_h264_software", extra={"path": str(video_path)}
-                )
-            except Exception as e:
-                temp_path.rename(video_path)
-                logger.warning("video_conversion_failed", extra={"error": str(e)})
-
     def _create_visits_from_detections(self, file_id: int, detections: List[Dict]):
         """Group detections into visits by species.
 
@@ -395,58 +275,26 @@ class FileProcessor:
             file_id: Database file ID
             detections: List of detection dictionaries
         """
-        # Filter high-confidence detections
-        high_conf = [
-            d
-            for d in detections
-            if d["species_confidence"]
-            and d["species_confidence"] >= self.config.min_species_confidence
-        ]
+        # Group detections by species
+        species_groups = self.visit_grouper.group_detections(detections)
 
-        if not high_conf:
-            # Summarize what was detected but filtered out
-            edge_count = sum(1 for d in detections if d["is_edge"])
-            null_conf_count = sum(
-                1 for d in detections if d["species_confidence"] is None
-            )
-            low_conf = [
-                d
-                for d in detections
-                if d["species_confidence"] is not None
-                and d["species_confidence"] < self.config.min_species_confidence
-            ]
-            low_conf_species = {
-                d["species_name"]: d["species_confidence"]
-                for d in low_conf
-                if d["species_name"]
-            }
+        if not species_groups:
             logger.warning(
                 "no_high_confidence_detections",
-                extra={
-                    "file_id": file_id,
-                    "total_detections": len(detections),
-                    "edge_detections": edge_count,
-                    "null_confidence": null_conf_count,
-                    "low_confidence_species": low_conf_species,
-                    "threshold": self.config.min_species_confidence,
-                },
+                extra={"file_id": file_id, "total_detections": len(detections)},
             )
             return
 
-        # Group by species
-        species_groups: Dict[str, List[Dict]] = {}
-        for det in high_conf:
-            species = det["species_name"]
-            if species not in species_groups:
-                species_groups[species] = []
-            species_groups[species].append(det)
-
         logger.info(
-            "species_groups_created",
-            extra={"file_id": file_id, "species_count": len(species_groups)},
+            f"species_groups_created: {list(species_groups.keys())}",
+            extra={
+                "file_id": file_id,
+                "species_count": len(species_groups),
+                "species": list(species_groups.keys()),
+            },
         )
 
-        # Create visits
+        # Create visits for each species
         for species_name, species_detections in species_groups.items():
             # Get or create taxon
             taxon_id = get_or_create_taxon(species_name)
@@ -455,105 +303,43 @@ class FileProcessor:
                 logger.warning("taxon_creation_failed", extra={"species": species_name})
                 continue
 
-            # Find best detection
-            best_det = max(species_detections, key=lambda d: d["detection_confidence"])
-            avg_species_conf = sum(
-                d["species_confidence"] for d in species_detections
-            ) / len(species_detections)
+            # Get visit summary
+            summary = self.visit_grouper.get_visit_summary(species_detections)
 
-            with db.get_connection() as conn:
-                # Check if visit already exists for this file and species
-                existing_visit = conn.execute(
-                    """
-                    SELECT id FROM visits
-                    WHERE file_id = ? AND inaturalist_taxon_id = ?
-                """,
-                    (file_id, taxon_id),
-                ).fetchone()
+            # Check if visit already exists
+            existing_visit = self.visit_repo.get_by_file_and_taxon(file_id, taxon_id)
 
-                if existing_visit:
-                    # Update existing visit
-                    visit_id = existing_visit["id"]
-                    conn.execute(
-                        """
-                        UPDATE visits
-                        SET species_confidence = ?,
-                            species_confidence_model = ?,
-                            detection_count = ?
-                        WHERE id = ?
-                    """,
-                        (
-                            avg_species_conf,
-                            BIOCLIP_MODEL_NAME,
-                            len(species_detections),
-                            visit_id,
-                        ),
-                    )
+            if existing_visit:
+                # Update existing visit
+                visit_id = existing_visit["id"]
+                self.visit_repo.update(
+                    visit_id,
+                    summary["avg_species_confidence"],
+                    summary["detection_count"],
+                )
+                # Delete old detections
+                self.visit_repo.delete_detections(visit_id)
+            else:
+                # Create new visit
+                visit_id = self.visit_repo.create(
+                    file_id,
+                    taxon_id,
+                    summary["avg_species_confidence"],
+                    summary["detection_count"],
+                )
 
-                    # Delete old detections for this visit
-                    conn.execute(
-                        "DELETE FROM detections WHERE visit_id = ?", (visit_id,)
-                    )
-                else:
-                    # Create new visit
-                    cursor = conn.execute(
-                        """
-                        INSERT INTO visits
-                        (file_id, inaturalist_taxon_id, species_confidence,
-                         species_confidence_model, detection_count)
-                        VALUES (?, ?, ?, ?, ?)
-                    """,
-                        (
-                            file_id,
-                            taxon_id,
-                            avg_species_conf,
-                            BIOCLIP_MODEL_NAME,
-                            len(species_detections),
-                        ),
-                    )
-                    visit_id = cursor.lastrowid
+            # Insert all detections for this visit
+            best_detection_id = None
+            for idx, det in enumerate(species_detections):
+                detection_id = self.visit_repo.add_detection(visit_id, det)
+                # Track the best detection
+                if idx == summary["best_detection_idx"]:
+                    best_detection_id = detection_id
 
-                # Insert all detections for this visit
-                for det in species_detections:
-                    cursor = conn.execute(
-                        """
-                        INSERT INTO detections
-                        (visit_id, frame_number, frame_timestamp,
-                         detection_confidence, detection_confidence_model,
-                         species_confidence, species_confidence_model,
-                         bbox_x1, bbox_y1, bbox_x2, bbox_y2,
-                         crop_path, is_edge_detection)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            visit_id,
-                            det["frame_number"],
-                            det["frame_timestamp"],
-                            det["detection_confidence"],
-                            YOLO_MODEL_PATH.replace(".pt", ""),
-                            det["species_confidence"],
-                            BIOCLIP_MODEL_NAME,
-                            det["bbox"][0],
-                            det["bbox"][1],
-                            det["bbox"][2],
-                            det["bbox"][3],
-                            det["crop_path"],
-                            1 if det["is_edge"] else 0,
-                        ),
-                    )
-
-                    # Set cover detection (auto-populate with best)
-                    if det is best_det:
-                        best_detection_id = cursor.lastrowid
-
-                # Update visit with cover detection (auto-set to best)
-                conn.execute(
-                    """
-                    UPDATE visits
-                    SET best_detection_id = ?, cover_detection_id = ?
-                    WHERE id = ?
-                """,
-                    (best_detection_id, best_detection_id, visit_id),
+            # Update visit with cover detection
+            if best_detection_id:
+                self.visit_repo.update_cover_detection(
+                    visit_id, best_detection_id, best_detection_id
                 )
 
             logger.info(
@@ -581,12 +367,7 @@ class FileProcessor:
         Returns:
             Number of files processed
         """
-        with db.get_connection() as conn:
-            pending_files = conn.execute("""
-                SELECT file_path FROM files
-                WHERE status = 'pending'
-                ORDER BY created_at
-            """).fetchall()
+        pending_files = self.file_repo.get_pending_files()
 
         # Filter to existing files
         file_paths = []
