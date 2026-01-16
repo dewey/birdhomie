@@ -268,6 +268,17 @@ class FileProcessor:
                         species_name, species_confidence = (
                             self.classifier.classify_from_array(pil_crop)
                         )
+                        logger.debug(
+                            "species_classified",
+                            extra={
+                                "frame": frame_idx,
+                                "species": species_name,
+                                "confidence": species_confidence,
+                                "passes_threshold": species_confidence
+                                and species_confidence
+                                >= self.config.min_species_confidence,
+                            },
+                        )
 
                     # Store detection info
                     all_detections.append(
@@ -393,7 +404,33 @@ class FileProcessor:
         ]
 
         if not high_conf:
-            logger.info("no_high_confidence_detections", extra={"file_id": file_id})
+            # Summarize what was detected but filtered out
+            edge_count = sum(1 for d in detections if d["is_edge"])
+            null_conf_count = sum(
+                1 for d in detections if d["species_confidence"] is None
+            )
+            low_conf = [
+                d
+                for d in detections
+                if d["species_confidence"] is not None
+                and d["species_confidence"] < self.config.min_species_confidence
+            ]
+            low_conf_species = {
+                d["species_name"]: d["species_confidence"]
+                for d in low_conf
+                if d["species_name"]
+            }
+            logger.warning(
+                "no_high_confidence_detections",
+                extra={
+                    "file_id": file_id,
+                    "total_detections": len(detections),
+                    "edge_detections": edge_count,
+                    "null_confidence": null_conf_count,
+                    "low_confidence_species": low_conf_species,
+                    "threshold": self.config.min_species_confidence,
+                },
+            )
             return
 
         # Group by species

@@ -100,6 +100,12 @@ class TestParameterizedRoutes:
         response = client.get("/files/999999999")
         assert response.status_code == 404
 
+    def test_reprocess_file_not_found(self, client):
+        """Test reprocess returns redirect with flash for invalid ID."""
+        response = client.post("/files/999999999/reprocess", follow_redirects=False)
+        # Should redirect to files list with error flash
+        assert response.status_code == 302
+
 
 class TestAPIEndpoints:
     """Test API endpoints return valid JSON."""

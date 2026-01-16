@@ -1,6 +1,7 @@
 """Flask web application for birdhomie."""
 
 import logging
+import shutil
 from datetime import datetime
 from io import BytesIO
 from flask import (
@@ -1708,6 +1709,80 @@ def merge_file(file_id):
         flash(_("File merged successfully"), "success")
 
     return redirect(url_for("file_detail", file_id=target_id))
+
+
+@app.route("/files/<int:file_id>/reprocess", methods=["POST"])
+def reprocess_file(file_id):
+    """Reprocess a file by clearing existing data and marking it as pending.
+
+    This will:
+    1. Delete all visits and detections for this file
+    2. Remove the output directory (crops, annotated video)
+    3. Set the file status back to 'pending'
+
+    The file will be picked up by the next processor run.
+    """
+    with db.get_connection() as conn:
+        # Verify file exists
+        file = conn.execute(
+            "SELECT id, file_path, status FROM files WHERE id = ?", (file_id,)
+        ).fetchone()
+
+        if not file:
+            flash(_("File not found"), "error")
+            return redirect(url_for("files_list"))
+
+        # Delete detections (cascade from visits)
+        conn.execute(
+            """
+            DELETE FROM detections
+            WHERE visit_id IN (SELECT id FROM visits WHERE file_id = ?)
+        """,
+            (file_id,),
+        )
+
+        # Delete visits (including soft-deleted ones)
+        conn.execute("DELETE FROM visits WHERE file_id = ?", (file_id,))
+
+        # Reset file status to pending
+        conn.execute(
+            """
+            UPDATE files
+            SET status = 'pending',
+                processed_at = NULL,
+                error_message = NULL,
+                duplicate_of_file_id = NULL
+            WHERE id = ?
+        """,
+            (file_id,),
+        )
+
+    # Remove output directory if it exists
+    output_dir = DATA_DIR / "output" / str(file_id)
+    if output_dir.exists():
+        try:
+            shutil.rmtree(output_dir)
+            logger.info(
+                "output_directory_removed",
+                extra={"file_id": file_id, "path": str(output_dir)},
+            )
+        except Exception as e:
+            logger.error(
+                "output_directory_removal_failed",
+                extra={"file_id": file_id, "error": str(e)},
+            )
+            flash(_("Warning: Could not remove output directory"), "warning")
+
+    logger.info(
+        "file_marked_for_reprocessing",
+        extra={"file_id": file_id, "previous_status": file["status"]},
+    )
+
+    flash(
+        _("File marked for reprocessing. It will be processed in the next run."),
+        "success",
+    )
+    return redirect(url_for("file_detail", file_id=file_id))
 
 
 @app.route("/data/<path:filename>")
