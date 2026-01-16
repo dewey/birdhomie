@@ -81,6 +81,26 @@ def on_exit(server):
         logger.info("Scheduler shutdown complete")
 
 
+def post_worker_init(worker):
+    """Called just after a worker has been initialized.
+
+    This is the ideal place to load ML models once per worker process.
+    """
+    logger = logging.getLogger("gunicorn.error")
+    logger.info(f"Initializing worker {worker.pid}")
+
+    try:
+        from birdhomie.config import Config
+        from birdhomie.model_cache import preload_models
+
+        config = Config.from_env()
+        preload_models(config)
+        logger.info(f"Worker {worker.pid} models preloaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to preload models in worker {worker.pid}: {e}")
+        # Don't raise - allow worker to start, models will lazy load if needed
+
+
 def worker_int(worker):
     """Called when a worker receives SIGINT or SIGQUIT."""
     logger = logging.getLogger("gunicorn.error")

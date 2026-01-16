@@ -17,6 +17,7 @@ from .video_processor import VideoFrameExtractor, VideoAnnotator
 from .visit_grouper import VisitGrouper
 from .repositories import FileRepository, VisitRepository
 from .utils import track_timing
+from .model_cache import get_detector, get_classifier
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +40,8 @@ class FileProcessor:
 
         Args:
             config: Application configuration
-            detector: Bird detector (optional, will create if None)
-            classifier: Species classifier (optional, will create if None)
+            detector: Bird detector (optional, will use cached instance if None)
+            classifier: Species classifier (optional, will use cached instance if None)
             file_repo: File repository (optional, will create if None)
             visit_repo: Visit repository (optional, will create if None)
             frame_extractor: Frame extractor (optional, will create if None)
@@ -48,10 +49,9 @@ class FileProcessor:
             visit_grouper: Visit grouper (optional, will create if None)
         """
         self.config = config
-        self.detector = detector or BirdDetector(
-            confidence_threshold=config.min_detection_confidence,
-        )
-        self.classifier = classifier or BirdSpeciesClassifier()
+        # Use cached models if not explicitly provided
+        self.detector = detector or get_detector(config)
+        self.classifier = classifier or get_classifier()
         self.file_repo = file_repo or FileRepository()
         self.visit_repo = visit_repo or VisitRepository()
         self.frame_extractor = frame_extractor or VideoFrameExtractor(
