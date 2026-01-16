@@ -1728,14 +1728,15 @@ def merge_file(file_id):
 
 @app.route("/files/<int:file_id>/reprocess", methods=["POST"])
 def reprocess_file(file_id):
-    """Reprocess a file by clearing existing data and marking it as pending.
+    """Reprocess a file by clearing existing data and triggering immediate processing.
 
     This will:
     1. Delete all visits and detections for this file
     2. Remove the output directory (crops, annotated video)
     3. Set the file status back to 'pending'
+    4. Trigger file processor immediately to process this file
 
-    The file will be picked up by the next processor run.
+    The file will be processed immediately in the background.
     """
     with db.get_connection() as conn:
         # Verify file exists
@@ -1793,8 +1794,24 @@ def reprocess_file(file_id):
         extra={"file_id": file_id, "previous_status": file["status"]},
     )
 
+    # Trigger file processor immediately in background
+    from .scheduler import process_files_task
+    import threading
+
+    def run_reprocess():
+        try:
+            process_files_task(config)
+        except Exception as e:
+            logger.error(
+                "reprocess_task_failed",
+                extra={"file_id": file_id, "error": str(e)},
+            )
+
+    thread = threading.Thread(target=run_reprocess, daemon=True)
+    thread.start()
+
     flash(
-        _("File marked for reprocessing. It will be processed in the next run."),
+        _("File marked for reprocessing and processing started."),
         "success",
     )
     return redirect(url_for("file_detail", file_id=file_id))
