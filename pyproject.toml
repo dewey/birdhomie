@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.4.1",
-    "opencv-python-headless>=4.11.0.86",
+    "opencv-python-headless>=4.13.0.90",
     "pillow>=12.1.0",
     "open-clip-torch>=3.2.0",
     "ultralytics>=8.3.248",
@@ -42,7 +42,7 @@ dev = [
 # Force opencv-python-headless instead of opencv-python (saves ~64MB)
 # ultralytics depends on opencv-python, but headless works fine in Docker
 override-dependencies = [
-    "opencv-python>=4.11.0.86 ; sys_platform == 'never'",
+    "opencv-python>=4.13.0.90 ; sys_platform == 'never'",
 ]
 
 # Use CPU-only PyTorch wheels (saves ~1.8GB vs CUDA version)
