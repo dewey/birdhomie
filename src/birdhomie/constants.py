@@ -6,11 +6,12 @@ from pathlib import Path
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
+DB_DIR = Path(os.environ.get("BIRDHOMIE_DB_DIR", str(DATA_DIR)))
 INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
 SPECIES_IMAGES_DIR = DATA_DIR / "species_images"
 MODELS_DIR = DATA_DIR / "models"
-DB_PATH = DATA_DIR / "birdhomie.db"
+DB_PATH = DB_DIR / "birdhomie.db"
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 
 # Configure Ultralytics to store settings in the models directory

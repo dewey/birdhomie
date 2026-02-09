@@ -141,6 +141,7 @@ All configuration options have sensible defaults. Only UniFi Protect credentials
 | `GUNICORN_WORKERS` | `2` | Number of web server workers (production) |
 | `PORT` | `5000` | Web server port |
 | `NNPACK_DISABLE` | `0` | Set to `1` for CPUs without AVX2/FMA support |
+| `BIRDHOMIE_DB_DIR` | `data/` | Directory for the SQLite database file |
 
 ### Development Settings
 
@@ -149,6 +150,31 @@ All configuration options have sensible defaults. Only UniFi Protect credentials
 | `FLASK_DEBUG` | `0` | Enable debug mode with hot reloading |
 | `SECRET_KEY` | `dev-secret-key` | Flask session secret (change for production) |
 | `FACE_ANNOTATION_BATCH_SIZE` | `100` | Batch size for face annotation |
+
+### Storage Layout
+
+By default, everything lives under a single `data/` directory:
+
+```
+data/
+├── birdhomie.db        # SQLite database
+├── input/              # Downloaded videos
+├── output/             # Processed results and crops
+├── species_images/     # Cached species images
+└── models/             # ML models
+```
+
+If you need to store the database on a separate volume (for example to avoid overlapping Docker mounts), set `BIRDHOMIE_DB_DIR` to a different path:
+
+```yaml
+environment:
+  - BIRDHOMIE_DB_DIR=/app/db
+volumes:
+  - birdhomie-db:/app/db        # Database on fast storage
+  - birdhomie-files:/app/data   # Large files on bulk storage
+```
+
+When `BIRDHOMIE_DB_DIR` is not set, the database is stored in `data/` alongside everything else.
 
 ## Web Interface
 
