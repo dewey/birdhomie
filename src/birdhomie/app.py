@@ -4,6 +4,7 @@ import logging
 import shutil
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from flask import (
     Flask,
     render_template,
@@ -1608,6 +1609,17 @@ def file_detail(file_id):
             (file_id,),
         ).fetchall()
 
+        total_detection_count = conn.execute(
+            """
+            SELECT COUNT(*) as cnt
+            FROM detections d
+            JOIN visits v ON d.visit_id = v.id
+            WHERE v.file_id = ?
+                AND v.deleted_at IS NULL
+        """,
+            (file_id,),
+        ).fetchone()["cnt"]
+
         # Get available files for merge dropdown (excluding current file)
         available_files = conn.execute(
             """
@@ -1627,6 +1639,9 @@ def file_detail(file_id):
 
         is_video = file["file_path"].lower().endswith((".mp4", ".avi", ".mov", ".mkv"))
 
+        # Check if the input file still exists on disk
+        input_available = Path(file["file_path"]).exists()
+
         # Check video availability
         annotated_path = None
         video_available = False
@@ -1642,8 +1657,10 @@ def file_detail(file_id):
         file=file,
         visits=visits,
         detections=all_detections,
+        total_detection_count=total_detection_count,
         available_files=available_files,
         is_video=is_video,
+        input_available=input_available,
         annotated_path=annotated_path,
         video_available=video_available,
         file_status=file_status,
@@ -1747,6 +1764,16 @@ def reprocess_file(file_id):
         if not file:
             flash(_("File not found"), "error")
             return redirect(url_for("files_list"))
+
+        # Check if the input file still exists on disk
+        if not Path(file["file_path"]).exists():
+            flash(
+                _(
+                    "Cannot reprocess: the input file has been deleted by the retention policy."
+                ),
+                "error",
+            )
+            return redirect(url_for("file_detail", file_id=file_id))
 
         # Delete detections (cascade from visits)
         conn.execute(

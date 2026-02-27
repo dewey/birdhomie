@@ -25,7 +25,7 @@ os.environ.setdefault("YOLO_VERBOSE", "false")
 
 # YOLO
 BIRD_CLASS_ID = 14
-YOLO_MODEL_PATH = str(MODELS_DIR / "yolov8m.pt")
+YOLO_MODEL_PATH = str(MODELS_DIR / "yolov8l.pt")
 
 # BioCLIP
 BIOCLIP_MODEL_NAME = "bioclip-2"

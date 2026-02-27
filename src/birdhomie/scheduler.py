@@ -4,6 +4,7 @@ import logging
 import shutil
 import signal
 import sys
+from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor
 from .config import Config
@@ -11,6 +12,7 @@ from .constants import OUTPUT_DIR
 from .utils import task_lock
 from .processor import process_files_sync
 from .unifi import download_unifi_events_sync
+from .repositories import FileRepository
 from . import database as db
 
 logger = logging.getLogger(__name__)
@@ -142,6 +144,51 @@ def regenerate_thumbnails_task(config: Config):
             )
     except BlockingIOError:
         logger.warning("thumbnail_regeneration_already_running")
+
+
+def cleanup_old_input_files_task(config: Config):
+    """Delete input files older than FILE_RETENTION_DAYS for successfully processed files."""
+    try:
+        with task_lock("cleanup_input_files") as task_id:
+            file_repo = FileRepository()
+            old_files = file_repo.get_old_successful_files(config.file_retention_days)
+
+            deleted_count = 0
+            for f in old_files:
+                file_path = Path(f["file_path"])
+                if file_path.exists():
+                    try:
+                        file_path.unlink()
+                        logger.info(
+                            "input_file_deleted",
+                            extra={"file_id": f["id"], "path": str(file_path)},
+                        )
+                    except OSError as e:
+                        logger.warning(
+                            "input_file_delete_failed",
+                            extra={"file_id": f["id"], "error": str(e)},
+                        )
+                        continue
+
+                file_repo.mark_input_deleted(f["id"])
+                deleted_count += 1
+
+            with db.get_connection() as conn:
+                conn.execute(
+                    """
+                    UPDATE task_runs
+                    SET items_processed = ?
+                    WHERE id = ?
+                """,
+                    (deleted_count, task_id),
+                )
+
+            logger.info(
+                "input_file_cleanup_completed",
+                extra={"task_id": task_id, "files_deleted": deleted_count},
+            )
+    except BlockingIOError:
+        logger.warning("input_file_cleanup_already_running")
 
 
 def cleanup_stale_tasks():
@@ -301,6 +348,16 @@ def start_scheduler(config: Config) -> BackgroundScheduler:
         args=[config],
     )
 
+    # Input file cleanup task (daily)
+    scheduler.add_job(
+        cleanup_old_input_files_task,
+        "interval",
+        hours=24,
+        id="cleanup_input_files",
+        name="Clean up old input files",
+        args=[config],
+    )
+
     scheduler.start()
     logger.info(
         "scheduler_started",
@@ -308,6 +365,8 @@ def start_scheduler(config: Config) -> BackgroundScheduler:
             "processor_interval": config.processor_interval_minutes,
             "download_interval": config.ufp_download_interval_minutes,
             "face_annotation_interval": 10,
+            "input_cleanup_interval_hours": 24,
+            "file_retention_days": config.file_retention_days,
         },
     )
 

@@ -12,7 +12,7 @@ Bird detection and classification system for UniFi Protect with web interface.
 
 ## Features
 
-- Automatic bird detection using YOLOv8m
+- Automatic bird detection using YOLOv8l
 - Species classification using BioCLIP-2
 - Face detection and annotation for bird portraits
 - UniFi Protect integration for automatic video download
@@ -136,7 +136,7 @@ All configuration options have sensible defaults. Only UniFi Protect credentials
 | `MIN_SPECIES_CONFIDENCE` | `0.85` | Minimum confidence for species ID (0.0-1.0) |
 | `MIN_DETECTION_CONFIDENCE` | `0.80` | Minimum confidence for bird detection (0.0-1.0) |
 | `FRAME_SKIP` | `5` | Process every Nth frame |
-| `FILE_RETENTION_DAYS` | `30` | Days to keep processed files |
+| `FILE_RETENTION_DAYS` | `30` | Days to keep input files after successful processing |
 | `UFP_INITIAL_SYNC_DAYS` | `30` | Days to look back on initial sync |
 | `GUNICORN_WORKERS` | `2` | Number of web server workers (production) |
 | `PORT` | `5000` | Web server port |

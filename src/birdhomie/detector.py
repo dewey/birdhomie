@@ -37,7 +37,7 @@ class BirdDetector:
             # Ensure models directory exists
             MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-            # YOLO will auto-download yolov8m.pt if file doesn't exist
+            # YOLO will auto-download yolov8l.pt if file doesn't exist
             self.model = YOLO(self.model_path)
             logger.info("yolo_model_loaded", extra={"model_path": self.model_path})
 
@@ -54,7 +54,7 @@ class BirdDetector:
             self.load_model()
 
         # Run inference
-        results = self.model(image, verbose=False)
+        results = self.model(image, verbose=False, imgsz=1280)
 
         detections = []
         for result in results:

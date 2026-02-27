@@ -75,7 +75,10 @@
                 </div>
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="text-sm text-gray-500">Total Detections</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ detections|length }}</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ total_detection_count }}</p>
+                    {% if detections|length < total_detection_count %}
+                    <p class="text-xs text-gray-400 mt-1">{{ detections|length }} with crops</p>
+                    {% endif %}
                 </div>
             </div>
 
@@ -137,12 +140,19 @@
             <!-- Reprocess File Action -->
             <div class="mt-6 pt-6 border-t border-gray-200">
                 <h3 class="text-sm font-medium text-gray-700 mb-2">{{ _('Reprocess file') }}</h3>
+                {% if input_available %}
                 <p class="text-xs text-gray-500 mb-3">{{ _('Delete all detections and visits, then reprocess from scratch. Useful for debugging or after configuration changes.') }}</p>
                 <form method="POST" action="/files/{{ file.id }}/reprocess" onsubmit="return confirm('{{ _('Are you sure you want to reprocess this file? All existing detections and visits will be deleted.') }}')">
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         <i class="bi bi-arrow-repeat mr-1"></i>{{ _('Reprocess') }}
                     </button>
                 </form>
+                {% else %}
+                <p class="text-xs text-gray-500 mb-3">{{ _('The input file has been deleted by the retention policy. Reprocessing is no longer available.') }}</p>
+                <button disabled class="px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md cursor-not-allowed">
+                    <i class="bi bi-arrow-repeat mr-1"></i>{{ _('Reprocess') }}
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -225,7 +235,7 @@
     <!-- All Detection Crops Grid -->
     <div>
         <h2 class="text-xl font-semibold text-gray-900 mb-3">
-            <i class="bi bi-grid-3x2"></i> All Detection Crops ({{ detections|length }})
+            <i class="bi bi-grid-3x2"></i> Detection Crops ({{ detections|length }})
         </h2>
 
         {% if detections %}

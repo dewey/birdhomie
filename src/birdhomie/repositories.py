@@ -143,6 +143,43 @@ class FileRepository:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    def mark_input_deleted(self, file_id: int):
+        """Mark that the input file has been deleted from disk.
+
+        Args:
+            file_id: File ID
+        """
+        with db.get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE files
+                SET input_deleted_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """,
+                (file_id,),
+            )
+
+    def get_old_successful_files(self, retention_days: int) -> List[Dict]:
+        """Get successfully processed files older than retention period whose input hasn't been deleted yet.
+
+        Args:
+            retention_days: Number of days to retain input files
+
+        Returns:
+            List of file records with id and file_path
+        """
+        with db.get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, file_path FROM files
+                WHERE status = 'success'
+                    AND input_deleted_at IS NULL
+                    AND processed_at < datetime('now', ? || ' days')
+            """,
+                (f"-{retention_days}",),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
 
 class VisitRepository:
     """Repository for visit-related database operations."""

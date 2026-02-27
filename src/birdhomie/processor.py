@@ -16,6 +16,7 @@ from .wikipedia import fetch_and_store_wikipedia_pages
 from .video_processor import VideoFrameExtractor, VideoAnnotator
 from .visit_grouper import VisitGrouper
 from .repositories import FileRepository, VisitRepository
+from . import database as db
 from .utils import track_timing
 from .model_cache import get_detector, get_classifier
 
@@ -255,6 +256,9 @@ class FileProcessor:
         # Group detections into visits
         self._create_visits_from_detections(file_id, all_detections)
 
+        # Prune excess crop files, keeping only top 5 per visit
+        self._cleanup_excess_crops(file_id, output_dir)
+
         duration = total_frames / fps if fps > 0 else 0.0
 
         logger.info(
@@ -359,6 +363,85 @@ class FileProcessor:
                 logger.error(
                     "wikipedia_fetch_failed",
                     extra={"taxon_id": taxon_id, "error": str(e)},
+                )
+
+    def _cleanup_excess_crops(self, file_id: int, output_dir: Path):
+        """Remove excess crop files, keeping only the top 5 per visit by detection confidence.
+
+        Always preserves the cover detection's crop. For remaining detections,
+        deletes the crop file from disk and sets crop_path to NULL in the database.
+
+        Args:
+            file_id: Database file ID
+            output_dir: Output directory containing crop files
+        """
+        with db.get_connection() as conn:
+            # Get all visits for this file
+            visits = conn.execute(
+                """
+                SELECT id, cover_detection_id FROM visits
+                WHERE file_id = ? AND deleted_at IS NULL
+            """,
+                (file_id,),
+            ).fetchall()
+
+            total_removed = 0
+
+            for visit in visits:
+                visit_id = visit["id"]
+                cover_detection_id = visit["cover_detection_id"]
+
+                # Get all detections for this visit, ordered by confidence
+                detections = conn.execute(
+                    """
+                    SELECT id, crop_path FROM detections
+                    WHERE visit_id = ? AND crop_path IS NOT NULL
+                    ORDER BY detection_confidence DESC
+                """,
+                    (visit_id,),
+                ).fetchall()
+
+                # Determine which detections to keep (top 5, always including cover)
+                keep_ids = set()
+                if cover_detection_id is not None:
+                    keep_ids.add(cover_detection_id)
+                for det in detections:
+                    if len(keep_ids) >= 5:
+                        break
+                    keep_ids.add(det["id"])
+
+                # Delete crops for detections not in the keep set
+                for det in detections:
+                    if det["id"] in keep_ids:
+                        continue
+
+                    # Delete crop file from disk
+                    crop_full_path = output_dir.parent / det["crop_path"]
+                    if crop_full_path.exists():
+                        try:
+                            crop_full_path.unlink()
+                        except OSError as e:
+                            logger.warning(
+                                "crop_delete_failed",
+                                extra={
+                                    "detection_id": det["id"],
+                                    "path": str(crop_full_path),
+                                    "error": str(e),
+                                },
+                            )
+                            continue
+
+                    # Set crop_path to NULL in DB
+                    conn.execute(
+                        "UPDATE detections SET crop_path = NULL WHERE id = ?",
+                        (det["id"],),
+                    )
+                    total_removed += 1
+
+            if total_removed > 0:
+                logger.info(
+                    "excess_crops_cleaned",
+                    extra={"file_id": file_id, "crops_removed": total_removed},
                 )
 
     def process_pending_files(self) -> int:
