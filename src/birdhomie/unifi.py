@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uiprotect import ProtectApiClient
 from uiprotect.data import Event, EventType
+from uiprotect.exceptions import NotAuthorized
 from .config import Config
 from .constants import INPUT_DIR
 from . import database as db
@@ -146,13 +147,20 @@ class UnifiProtectDownloader:
         if not event_types:
             event_types = [EventType.MOTION]
 
-        events = await client.get_events(
-            start=start_time,
-            end=end_time,
-            types=event_types,
-        )
+        try:
+            events = await client.get_events(
+                start=start_time,
+                end=end_time,
+                types=event_types,
+            )
+        except NotAuthorized as e:
+            logger.warning(
+                "unifi_events_fetch_not_authorized",
+                extra={"error": str(e)},
+            )
+            events = []
 
-        # Filter by camera ID
+        # Filter by camera ID (only process cameras we have access to)
         filtered_events = [
             e for e in events if e.camera_id == self.config.ufp_camera_id
         ]
@@ -173,6 +181,11 @@ class UnifiProtectDownloader:
                 # (already-downloaded events still update cursor)
                 if newest_event_time is None or event.start > newest_event_time:
                     newest_event_time = event.start
+            except NotAuthorized:
+                logger.warning(
+                    "event_download_not_authorized",
+                    extra={"event_id": event.id, "camera_id": event.camera_id},
+                )
             except Exception as e:
                 logger.error(
                     "event_download_failed",
@@ -236,7 +249,16 @@ class UnifiProtectDownloader:
         INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
         try:
-            video_data = await event.get_video()
+            # Call get_camera_video directly to bypass the library's
+            # can_read_media check, which doesn't understand granular
+            # permissions (e.g. playback:download). The NVR itself
+            # handles authorization correctly.
+            if event.camera is None or event.end is None:
+                logger.warning("event_missing_camera_or_end", extra={"event_id": event.id})
+                return False
+            video_data = await client.get_camera_video(
+                event.camera.id, event.start, event.end
+            )
             if not video_data:
                 logger.warning("no_video_data", extra={"event_id": event.id})
                 return False
@@ -280,6 +302,15 @@ class UnifiProtectDownloader:
 
             return True
 
+        except NotAuthorized:
+            logger.warning(
+                "video_download_not_authorized",
+                extra={
+                    "event_id": event.id,
+                    "camera_id": event.camera_id,
+                },
+            )
+            return False
         except Exception as e:
             logger.error(
                 "video_download_failed",
